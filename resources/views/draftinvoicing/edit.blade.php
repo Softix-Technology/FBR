@@ -369,7 +369,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Sales Tax Applicable</label>
-                                <input type="number" id="modalSalesTaxApplicable" name="salesTaxApplicable" placeholder="Auto-calculated" min="0" step="any" readonly class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm sales-tax-field">
+                                <input type="number" id="modalSalesTaxApplicable" name="salesTaxApplicable" placeholder="0.00" min="0" step="any" readonly class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm sales-tax-field">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Fixed Notified Value/Retail Price <span class="text-red-500 schedule-3rd-fn-required hidden">*</span></label>
@@ -382,7 +382,7 @@
                             </div>
                             <div class="schedule-3rd-field hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">G/H Amount</label>
-                                <input type="number" id="modalGhAmount" name="ghAmount" placeholder="Auto-calculated" min="0" step="any" readonly class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                                <input type="number" id="modalGhAmount" name="ghAmount" placeholder="0.00" min="0" step="any" readonly class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
                             </div>
                             <div class="schedule-3rd-field hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
@@ -390,7 +390,7 @@
                             </div>
                             <div class="schedule-3rd-field hidden">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Discount Amount</label>
-                                <input type="number" id="modalDiscountAmount" name="discountAmount" placeholder="Auto-calculated" min="0" step="any" readonly class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                                <input type="number" id="modalDiscountAmount" name="discountAmount" placeholder="0.00" min="0" step="any" readonly class="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Sales Tax Withheld at Source</label>
@@ -540,18 +540,40 @@
 
         // Helper function to find province code by name (for backwards compatibility)
         function findProvinceCodeByName(provinceName) {
-            if (!provinceName || !provinces) return provinceName;
+            if (!provinceName) return '';
+            const cleanName = String(provinceName).trim().toLowerCase();
 
-            // If it's already a code (number), return it
-            if (!isNaN(provinceName)) return provinceName;
+            // Direct mapping dictionary for all Pakistan provinces/territories
+            const map = {
+                'balochistan': 2,
+                'azad jammu and kashmir': 4,
+                'ajk': 4,
+                'capital territory': 5,
+                'islamabad': 5,
+                'khyber pakhtunkhwa': 6,
+                'kpk': 6,
+                'punjab': 7,
+                'sindh': 8,
+                'gilgit baltistan': 9,
+                'gb': 9
+            };
+            if (map[cleanName]) return map[cleanName];
 
-            // Find province by name (case insensitive)
-            const province = provinces.find(p =>
-                p.stateProvinceDesc &&
-                p.stateProvinceDesc.toLowerCase() === provinceName.toLowerCase()
-            );
+            if (provinces && Array.isArray(provinces)) {
+                const province = provinces.find(p =>
+                    p.stateProvinceDesc &&
+                    p.stateProvinceDesc.toLowerCase() === cleanName
+                );
+                if (province && province.stateProvinceCode) {
+                    return province.stateProvinceCode;
+                }
+            }
 
-            return province ? province.stateProvinceCode : provinceName;
+            if (!isNaN(parseInt(provinceName))) {
+                return parseInt(provinceName);
+            }
+
+            return provinceName;
         }
 
         // Load and populate Document Types (Invoice Types) from FBR API
@@ -594,8 +616,7 @@ const result = JSON.parse(cleanText);
                         $(this).select2({
                             placeholder: 'Select Invoice Type',
                             allowClear: true,
-                            width: '100%',
-                            dropdownAutoWidth: true
+                            width: '100%'
                         });
                     });
 
@@ -1334,12 +1355,42 @@ const result = JSON.parse(cleanText);
 
         // Initialize Select2 for modal fields
         function initializeModalSelect2() {
+            // Clean up existing instances and their bound events first
+            ['#modalSaleType', '#modalHsCode', '#modalUoM', '#modalRate', '#modalSroScheduleNo', '#modalSroItemSerialNo'].forEach(selector => {
+                if ($(selector).data('select2')) {
+                    $(selector).off('select2:select select2:clear');
+                    $(selector).select2('destroy');
+                }
+                $(selector).removeClass('select2-hidden-accessible').removeAttr('data-select2-id');
+                $(selector).find('option').removeAttr('data-select2-id');
+            });
+
             // Initialize Select2 for modal sale type
             $('#modalSaleType').select2({
                 placeholder: 'Select Sale Type',
                 allowClear: true,
                 width: '100%',
                 dropdownParent: $('#addItemModal')
+            });
+            // Attach select2:select directly on the element (document delegation fails with dropdownParent)
+            $('#modalSaleType').on('select2:select', function(e) {
+                const selectedSaleType = e.params && e.params.data ? e.params.data.id : $(this).val();
+                console.log('[Sale Type] select2:select fired, value:', selectedSaleType);
+                toggleScheduleFields();
+                if (selectedSaleType) {
+                    fetchRatesForEdit(String(selectedSaleType));
+                }
+            });
+            $('#modalSaleType').on('select2:clear', function(e) {
+                const rateSelect = document.getElementById('modalRate');
+                if (rateSelect) {
+                    rateSelect.innerHTML = '<option value="">Select Rate</option>';
+                    rateSelect.disabled = true;
+                    if ($(rateSelect).data('select2')) $(rateSelect).select2('destroy');
+                    $(rateSelect).removeClass('select2-hidden-accessible').removeAttr('data-select2-id');
+                    $(rateSelect).select2({ placeholder: 'Select Rate', allowClear: true, width: '100%', dropdownParent: $('#addItemModal') });
+                }
+                toggleScheduleFields();
             });
 
             // Initialize Select2 for modal HS Code with AJAX
@@ -1356,6 +1407,27 @@ const result = JSON.parse(cleanText);
                     }
                 }
             });
+            // Attach select2:select directly on the element (document delegation fails with dropdownParent)
+            $('#modalHsCode').on('select2:select', function(e) {
+                const selectedHsCode = e.params && e.params.data ? e.params.data.id : $(this).val();
+                const selectedText = e.params && e.params.data ? e.params.data.text : '';
+                console.log('[HS Code] select2:select fired, value:', selectedHsCode);
+
+                // Auto-fill Product Description if empty
+                if (selectedText && selectedText.includes(' - ')) {
+                    const parts = selectedText.split(' - ');
+                    parts.shift();
+                    const desc = parts.join(' - ').trim();
+                    const prodDescEl = document.getElementById('modalProductDescription');
+                    if (prodDescEl && (!prodDescEl.value || prodDescEl.value.trim() === '')) {
+                        prodDescEl.value = desc;
+                    }
+                }
+
+                if (selectedHsCode) {
+                    fetchUomByHsCode(String(selectedHsCode));
+                }
+            });
 
             // Initialize Select2 for modal UoM
             $('#modalUoM').select2({
@@ -1366,6 +1438,9 @@ const result = JSON.parse(cleanText);
             });
 
             // Initialize Select2 for modal rate
+            $('#modalRate').off('select2:select.rateHandler change.rateHandler').on('select2:select.rateHandler change.rateHandler', function() {
+                onModalRateChange();
+            });
             $('#modalRate').select2({
                 placeholder: 'Select Rate',
                 allowClear: true,
@@ -1466,6 +1541,7 @@ const result = JSON.parse(cleanText);
 
         // Fetch UOM based on HS code
         async function fetchUomByHsCode(hsCode) {
+            console.log('[fetchUomByHsCode] called with hsCode:', hsCode);
             if (!hsCode) {
                 const uomSelect = document.getElementById('modalUoM');
                 if (uomSelect) {
@@ -1483,6 +1559,8 @@ const result = JSON.parse(cleanText);
                     uomSelect.disabled = true;
                 }
 
+                const cleanHsCode = String(hsCode).trim();
+
                 const response = await fetch(`${API_BASE}/premiertax/api/fbr/uom-by-hs-code`, {
                     method: 'POST',
                     headers: {
@@ -1491,42 +1569,60 @@ const result = JSON.parse(cleanText);
                         'X-CSRF-TOKEN': CSRF_TOKEN
                     },
                     body: JSON.stringify({
-                        hs_code: hsCode
+                        hs_code: cleanHsCode
                     })
                 });
 
                 const text = await response.text();
-console.log('RAW RATE RESPONSE:', text);
+                console.log('RAW UOM RESPONSE:', text);
 
-const cleanText = text.trim().startsWith('{')
-    ? text
-    : text.substring(text.indexOf('{'));
+                const cleanText = text.trim().startsWith('{')
+                    ? text
+                    : text.substring(text.indexOf('{'));
 
-const result = JSON.parse(cleanText);
+                const result = JSON.parse(cleanText);
 
                 if (result.success && result.data && result.data.length > 0) {
-                    // Populate UOM dropdown
                     if (uomSelect) {
                         uomSelect.innerHTML = '<option value="">Select Unit of Measure</option>';
+                        let addedCount = 0;
+                        const seen = new Set();
                         result.data.forEach(uom => {
-                            const uomId = uom.uoM_ID || uom.id;
-                            const uomDesc = uom.uoM_DESC || uom.description;
-                            if (uomId && uomDesc) {
+                            const uomId = uom.uoM_ID ?? uom.id ?? uom.uom_id ?? uom.uoM_Code;
+                            const uomDesc = uom.uoM_DESC ?? uom.description ?? uom.desc ?? uom.uom_desc;
+                            if (uomId !== undefined && uomId !== null && uomDesc && !seen.has(String(uomId))) {
+                                seen.add(String(uomId));
                                 const option = document.createElement('option');
                                 option.value = uomId;
                                 option.textContent = uomDesc;
                                 uomSelect.appendChild(option);
+                                addedCount++;
                             }
                         });
-                        uomSelect.disabled = false;
 
-                        // Re-initialize Select2
-                        $(uomSelect).select2('destroy').select2({
+                        if (addedCount > 0) {
+                            uomSelect.disabled = false;
+                        } else {
+                            uomSelect.innerHTML = '<option value="">No UOM available</option>';
+                            uomSelect.disabled = true;
+                        }
+
+                        if ($(uomSelect).data('select2')) {
+                            $(uomSelect).select2('destroy');
+                        }
+                        $(uomSelect).removeClass('select2-hidden-accessible').removeAttr('data-select2-id');
+                        $(uomSelect).find('option').removeAttr('data-select2-id');
+                        $(uomSelect).select2({
                             placeholder: 'Select Unit of Measure',
                             allowClear: true,
                             width: '100%',
                             dropdownParent: $('#addItemModal')
                         });
+
+                        // If exactly 1 UOM is available, auto-select it
+                        if (addedCount === 1 && uomSelect.options[1]) {
+                            $(uomSelect).val(uomSelect.options[1].value).trigger('change');
+                        }
                     }
 
                     console.log('UOM options loaded for HS Code:', hsCode, result.data.length, 'options');
@@ -1535,6 +1631,17 @@ const result = JSON.parse(cleanText);
                     if (uomSelect) {
                         uomSelect.innerHTML = '<option value="">No UOM available for this HS Code</option>';
                         uomSelect.disabled = true;
+                        if ($(uomSelect).data('select2')) {
+                            $(uomSelect).select2('destroy');
+                        }
+                        $(uomSelect).removeClass('select2-hidden-accessible').removeAttr('data-select2-id');
+                        $(uomSelect).find('option').removeAttr('data-select2-id');
+                        $(uomSelect).select2({
+                            placeholder: 'No UOM available',
+                            allowClear: true,
+                            width: '100%',
+                            dropdownParent: $('#addItemModal')
+                        });
                     }
                     console.warn('No UOM found for HS Code:', hsCode);
                     return [];
@@ -1551,12 +1658,22 @@ const result = JSON.parse(cleanText);
             }
         }
 
-                // Fetch rates based on sale type and buyer province - using existing API
+        // Fetch rates based on sale type and buyer/seller province - using existing API
         async function fetchRatesForEdit(saleType) {
-            const buyerProvince = $('#buyerProvince').val();
-            const invoiceDate = document.getElementById('invoiceDate').value;
-            if (!buyerProvince || !invoiceDate || !saleType) {
-                console.log('Missing required data for rate fetch:', { buyerProvince, invoiceDate, saleType });
+            console.log('[fetchRatesForEdit] called with saleType:', saleType);
+            const rawProvince = $('#buyerProvince').val() || $('#sellerProvince').val() || '{{ $draftInvoice->buyer_province }}' || '{{ $draftInvoice->seller_province }}' || '';
+            const buyerProvinceCode = findProvinceCodeByName(rawProvince) || 7;
+            const invoiceDate = (document.getElementById('invoiceDate') && document.getElementById('invoiceDate').value)
+                ? document.getElementById('invoiceDate').value
+                : new Date().toISOString().split('T')[0];
+
+            const parsedSaleType = parseInt(saleType);
+            const parsedProvince = parseInt(buyerProvinceCode);
+
+            console.log('[fetchRatesForEdit] Parsed params:', { parsedSaleType, parsedProvince, invoiceDate });
+
+            if (isNaN(parsedSaleType) || isNaN(parsedProvince)) {
+                console.warn('Invalid params for rate fetch:', { parsedSaleType, parsedProvince, invoiceDate });
                 return [];
             }
 
@@ -1576,50 +1693,88 @@ const result = JSON.parse(cleanText);
                     },
                     body: JSON.stringify({
                         date: invoiceDate,
-                        trans_type_id: parseInt(saleType),
-                        origination_supplier: parseInt(buyerProvince)
+                        trans_type_id: parsedSaleType,
+                        origination_supplier: parsedProvince
                     })
                 });
 
                 const text = await response.text();
-console.log('RAW RATE RESPONSE:', text);
+                console.log('RAW RATE RESPONSE:', text);
 
-const cleanText = text.trim().startsWith('{')
-    ? text
-    : text.substring(text.indexOf('{'));
+                const cleanText = text.trim().startsWith('{')
+                    ? text
+                    : text.substring(text.indexOf('{'));
 
-const result = JSON.parse(cleanText);
+                const result = JSON.parse(cleanText);
 
                 if (result.success && result.data && result.data.length > 0) {
                     if (rateSelect) {
                         rateSelect.innerHTML = '<option value="">Select Rate</option>';
-                        result.data.forEach((rateData) => {
-                            const rateValue = rateData.ratE_VALUE || 0;
-                            const rateId = rateData.ratE_ID;
-                            const rateDesc = rateData.ratE_DESC || '';
+                        let targetOptionValue = '';
+
+                        result.data.forEach((rateData, index) => {
+                            const rateValue = rateData.ratE_VALUE ?? rateData.rate_value ?? rateData.rateValue ?? 0;
+                            const rateId = rateData.ratE_ID ?? rateData.rate_id ?? rateData.rateId;
+                            const rateDesc = rateData.ratE_DESC ?? rateData.rate_desc ?? rateData.rateDesc ?? '';
 
                             const option = document.createElement('option');
-                            option.value = JSON.stringify({
+                            const optionValueObj = {
                                 rate_id: rateId,
                                 rate_value: rateValue,
                                 rate_desc: rateDesc
-                            });
+                            };
+                            option.value = JSON.stringify(optionValueObj);
 
                             let displayText = rateDesc && rateDesc.trim() !== '' ? rateDesc : `${rateValue}%`;
                             option.textContent = displayText;
                             option.title = rateDesc || `Rate: ${rateValue}%`;
                             rateSelect.appendChild(option);
+
+                            // If editing an item, restore the previously selected rate
+                            if (editingItemIndex >= 0 && itemsData[editingItemIndex]) {
+                                const savedItem = itemsData[editingItemIndex];
+                                if (savedItem && savedItem.rate) {
+                                    try {
+                                        const savedRateObj = JSON.parse(savedItem.rate);
+                                        if (savedRateObj.rate_id == rateId || savedRateObj.rate_value == rateValue) {
+                                            option.selected = true;
+                                            targetOptionValue = option.value;
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+
+                            // Select the first rate by default if not set by edit mode
+                            if (!targetOptionValue && index === 0) {
+                                option.selected = true;
+                                targetOptionValue = option.value;
+                            }
                         });
 
                         rateSelect.disabled = false;
 
-                        // Re-initialize Select2
-                        $(rateSelect).select2('destroy').select2({
+                        if ($(rateSelect).data('select2')) {
+                            $(rateSelect).select2('destroy');
+                        }
+                        $(rateSelect).off('select2:select.rateHandler change.rateHandler').on('select2:select.rateHandler change.rateHandler', function() {
+                            onModalRateChange();
+                        });
+
+                        $(rateSelect).select2({
                             placeholder: 'Select Rate',
                             allowClear: true,
                             width: '100%',
                             dropdownParent: $('#addItemModal')
                         });
+
+                        const finalVal = targetOptionValue || (rateSelect.options[1]?.value || '');
+                        $(rateSelect).val(finalVal).trigger('change');
+                        if (finalVal) {
+                            $(rateSelect).trigger('select2:select');
+                        }
+
+                        // Trigger sales tax calculation
+                        calculateModalSalesTax();
                     }
 
                     console.log('Rates loaded:', result.data.length, 'options');
@@ -1628,6 +1783,17 @@ const result = JSON.parse(cleanText);
                     if (rateSelect) {
                         rateSelect.innerHTML = '<option value="">No rates available</option>';
                         rateSelect.disabled = true;
+                        if ($(rateSelect).data('select2')) {
+                            $(rateSelect).select2('destroy');
+                        }
+                        $(rateSelect).removeClass('select2-hidden-accessible').removeAttr('data-select2-id');
+                        $(rateSelect).find('option').removeAttr('data-select2-id');
+                        $(rateSelect).select2({
+                            placeholder: 'No rates available',
+                            allowClear: true,
+                            width: '100%',
+                            dropdownParent: $('#addItemModal')
+                        });
                     }
                     return [];
                 }
@@ -1640,6 +1806,29 @@ const result = JSON.parse(cleanText);
                     rateSelect.disabled = true;
                 }
                 return [];
+            }
+        }
+
+        // Handler when modal rate changes
+        function onModalRateChange() {
+            calculateModalSalesTax();
+            const rateSelect = document.getElementById('modalRate');
+            const invoiceDate = (document.getElementById('invoiceDate') && document.getElementById('invoiceDate').value)
+                ? document.getElementById('invoiceDate').value
+                : new Date().toISOString().split('T')[0];
+            const rawProvince = $('#buyerProvince').val() || $('#sellerProvince').val() || '';
+            const buyerProvince = findProvinceCodeByName(rawProvince) || 7;
+
+            if (rateSelect && rateSelect.value && invoiceDate && buyerProvince) {
+                try {
+                    const rateData = JSON.parse(rateSelect.value);
+                    const rateId = rateData.rate_id;
+                    if (rateId) {
+                        fetchSroSchedule(rateId, invoiceDate, buyerProvince, document.getElementById('addItemModal'));
+                    }
+                } catch (error) {
+                    console.warn('Could not parse rate data for SRO schedule:', error);
+                }
             }
         }
 
@@ -1821,39 +2010,7 @@ const result = JSON.parse(cleanText);
 
         // Recalculate 3rd Schedule fields
         function recalculate3rdSchedule() {
-            const fnField = document.getElementById('modalFixedNotifiedValueOrRetailPrice');
-            const ghPercentField = document.getElementById('modalGhPercent');
-            const ghAmountField = document.getElementById('modalGhAmount');
-            const discountPercentField = document.getElementById('modalDiscountPercent');
-            const discountAmountField = document.getElementById('modalDiscountAmount');
-            const discountField = document.getElementById('modalDiscount');
-            const valueSalesField = document.getElementById('modalValueSalesExcludingST');
-            const salesTaxField = document.getElementById('modalSalesTaxApplicable');
-            const rateSelect = document.getElementById('modalRate');
-
-            const fnv = parseFloat(fnField.value) || 0;
-            const ghPercent = parseFloat(ghPercentField.value) || 0;
-            const discountPercent = parseFloat(discountPercentField.value) || 0;
-
-            let rate = 0;
-            if (rateSelect.value) {
-                try {
-                    rate = parseFloat(JSON.parse(rateSelect.value).rate_value) || 0;
-                } catch (e) {}
-            }
-
-            const discountAmount = fnv * discountPercent / 100;
-            discountAmountField.value = discountAmount.toFixed(2);
-            discountField.value = discountAmount.toFixed(2);
-
-            const valueSales = fnv - discountAmount;
-            valueSalesField.value = valueSales.toFixed(2);
-
-            const salesTax = fnv * rate / 100;
-            salesTaxField.value = salesTax.toFixed(2);
-
-            const ghAmount = (valueSales + salesTax) * ghPercent / 100;
-            ghAmountField.value = ghAmount.toFixed(2);
+            calculateModalSalesTax();
         }
 
         // Modal functions
@@ -1909,11 +2066,11 @@ const result = JSON.parse(cleanText);
                 }
             });
 
+            // Populate modal selects with fresh data BEFORE initializing Select2
+            populateModalSelects();
+
             // Initialize Select2 for modal fields
             initializeModalSelect2();
-
-            // Populate modal selects with fresh data
-            populateModalSelects();
 
             // Hide 3rd Schedule fields by default (no sale type selected yet)
             toggleScheduleFields();
@@ -1988,163 +2145,109 @@ const result = JSON.parse(cleanText);
         document.getElementById('buyerProvince').addEventListener('change', validateBuyerRequirements);
         document.getElementById('buyerRegistrationType').addEventListener('change', validateBuyerRequirements);
 
-        // When sale type changes in the modal, fetch the applicable rates AND toggle 3rd schedule fields
-        $(document).on('change', '#modalSaleType', function() {
-            const selectedSaleType = $(this).val();
-            // Toggle 3rd schedule fields visibility based on selected sale type
-            toggleScheduleFields();
-            if (selectedSaleType) {
-                fetchRatesForEdit(selectedSaleType);
-            } else {
-                const rateSelect = document.getElementById('modalRate');
-                if (rateSelect) {
-                    rateSelect.innerHTML = '<option value="">Select Rate</option>';
-                    $(rateSelect).select2('destroy').select2({
-                        placeholder: 'Select Rate',
-                        allowClear: true,
-                        width: '100%',
-                        dropdownParent: $('#addItemModal')
-                    });
+        // NOTE: Sale Type and HS Code select2:select listeners are now bound DIRECTLY on the
+        // elements inside initializeModalSelect2() above. Document-level delegation does not
+        // work reliably when dropdownParent is set on Select2.
+        // Unified Modal Sales Tax Calculation function
+        function calculateModalSalesTax() {
+            const isThirdParty = is3rdScheduleSelected();
+
+            const rateValuesInput = document.getElementById('modalRateValues');
+            const quantityInput = document.getElementById('modalQuantity');
+            const rateTax = document.getElementById('modalRate');
+
+            let rate = 0;
+            if (rateTax && rateTax.value) {
+                try {
+                    const rd = JSON.parse(rateTax.value);
+                    rate = parseFloat(rd.rate_value) || 0;
+                } catch (e) {
+                    rate = 0;
                 }
             }
-        });
 
-        // When HS Code changes in the modal, fetch UoM
-        $(document).on('change', '#modalHsCode', function() {
-            const selectedHsCode = $(this).val();
-            if (selectedHsCode) {
-                fetchUomByHsCode(selectedHsCode);
+            const valueSalesField = document.getElementById('modalValueSalesExcludingST');
+            const valueFurtherField = document.getElementById('modalFurtherTax');
+            const salesTaxField = document.getElementById('modalSalesTaxApplicable');
+            const discountField = document.getElementById('modalDiscount');
+            const totalValuesField = document.getElementById('modalTotalValues');
+
+            if (!rateTax || !valueSalesField || !salesTaxField) {
+                return;
+            }
+
+            const qty = parseFloat(quantityInput ? quantityInput.value : 0) || 0;
+
+            if (isThirdParty) {
+                const fnField = document.getElementById('modalFixedNotifiedValueOrRetailPrice');
+                const basePrice = parseFloat(fnField ? fnField.value : 0) || 0;
+
+                const ghPercentField = document.getElementById('modalGhPercent');
+                const ghPercent = parseFloat(ghPercentField ? ghPercentField.value : 0) || 0;
+
+                const discountPercentField = document.getElementById('modalDiscountPercent');
+                const discountPercent = parseFloat(discountPercentField ? discountPercentField.value : 0) || 0;
+
+                const discountAmount = basePrice * discountPercent / 100;
+                const discountAmtEl = document.getElementById('modalDiscountAmount');
+                if (discountAmtEl) discountAmtEl.value = discountAmount.toFixed(2);
+                if (discountField) discountField.value = discountAmount.toFixed(2);
+
+                const salesTax3rd = basePrice * rate / 100;
+                salesTaxField.value = salesTax3rd.toFixed(2);
+
+                const exclVal = basePrice - discountAmount;
+                if (valueSalesField) valueSalesField.value = exclVal.toFixed(2);
+
+                const ghAmount = (exclVal + salesTax3rd) * ghPercent / 100;
+                const ghAmtEl = document.getElementById('modalGhAmount');
+                if (ghAmtEl) ghAmtEl.value = ghAmount.toFixed(2);
+
+                if (rate > 0 && basePrice > 0) {
+                    salesTaxField.classList.remove('bg-gray-50', 'bg-red-50');
+                    salesTaxField.classList.add('bg-green-50');
+                    salesTaxField.title = `3rd Schedule Tax: ${basePrice.toFixed(2)} × ${rate}% = ${salesTax3rd.toFixed(2)}`;
+                } else {
+                    salesTaxField.classList.remove('bg-green-50', 'bg-red-50');
+                    salesTaxField.classList.add('bg-gray-50');
+                }
+
+                const furtherTaxAmt = exclVal * 4 / 100;
+                if ($('#buyerRegistrationType').val() === 'Unregistered' && valueFurtherField) {
+                    valueFurtherField.value = furtherTaxAmt.toFixed(2);
+                }
             } else {
-                const uomSelect = document.getElementById('modalUoM');
-                if (uomSelect) {
-                    uomSelect.innerHTML = '<option value="">Select HS Code first</option>';
-                    uomSelect.disabled = true;
-                    $(uomSelect).select2('destroy').select2({
-                        placeholder: 'Select Unit of Measure',
-                        allowClear: true,
-                        width: '100%',
-                        dropdownParent: $('#addItemModal')
-                    });
+                const rater = parseFloat(rateValuesInput ? rateValuesInput.value : 0) || 0;
+                const totalTaxvalue = (rater * rate) / 100;
+                const total = (rater + totalTaxvalue) * qty;
+                const totalDM = rater * qty;
+
+                if (totalValuesField) totalValuesField.value = total.toFixed(2);
+                if (valueSalesField) valueSalesField.value = totalDM.toFixed(2);
+
+                const valueSales = parseFloat(valueSalesField ? valueSalesField.value : 0) || 0;
+                const salesTax = (valueSales * rate) / 100;
+                salesTaxField.value = salesTax.toFixed(2);
+
+                if (rate > 0 && valueSales > 0) {
+                    salesTaxField.classList.remove('bg-gray-50', 'bg-red-50');
+                    salesTaxField.classList.add('bg-green-50');
+                    salesTaxField.title = `Calculated: ${valueSales} × ${rate}% = ${salesTax.toFixed(2)}`;
+                } else {
+                    salesTaxField.classList.remove('bg-green-50');
+                    salesTaxField.classList.add('bg-gray-50');
+                    salesTaxField.title = 'Enter rate and value sales to calculate';
+                }
+
+                if ($('#buyerRegistrationType').val() === 'Unregistered' && valueFurtherField) {
+                    valueFurtherField.value = (totalDM * 4 / 100).toFixed(2);
                 }
             }
-        });
-         // Add event listener for Value Sales Excluding ST changes
-            // Add event listener for rate*quantity
-            $(document).on('input', 'input[name*="[rateValues]"],input[name*="[quantity]"], #modalRateValues,#modalQuantity,#modalFixedNotifiedValueOrRetailPrice,#modalDiscount,#modalValueSalesExcludingST', function(e) {
-
-// Check if we're in the modal context
-const isModal =
-    e.target.closest('#addItemModal') !== null ||
-    e.target.id === 'modalRateValues' ||
-    e.target.id === 'modalFixedNotifiedValueOrRetailPrice' ||
-    e.target.id === 'modalDiscount' ||
-    e.target.id === 'modalValueSalesExcludingST';
-
-if (isModal) {
-    const isThirdParty = is3rdScheduleSelected();
-
-    let rateSelecter = document.getElementById('modalRateValues');
-    let quantity = document.getElementById('modalQuantity');
-    let rateTax = document.getElementById('modalRate');
-
-    let rateData;
-    try {
-        rateData = JSON.parse(rateTax.value);
-    } catch (e) {
-        rateData = { rate_value: 0 };
-    }
-
-    let rate = 0;
-    if (rateTax.value) {
-        try {
-            const rd = JSON.parse(rateTax.value);
-            rate = parseFloat(rd.rate_value) || 0;
-        } catch (e) {
-            rate = 0;
-        }
-    }
-
-    let valueSalesField = document.getElementById('modalValueSalesExcludingST');
-    let valueFurtherField = document.getElementById('modalFurtherTax');
-    let salesTaxField = document.getElementById('modalSalesTaxApplicable');
-    let discountField = document.getElementById('modalDiscount');
-
-    if (!rateTax || !valueSalesField || !salesTaxField) {
-        console.warn('Could not find required fields for sales tax calculation');
-        return;
-    }
-
-    const qty = parseFloat(quantity.value) || 0;
-    const taxter = parseFloat(rateData.rate_value) || 0;
-
-    if (isThirdParty) {
-        const basePrice = parseFloat(document.getElementById('modalFixedNotifiedValueOrRetailPrice').value) || 0;
-
-        const ghPercent = parseFloat(document.getElementById('modalGhPercent').value) || 0;
-        const discountPercent = parseFloat(document.getElementById('modalDiscountPercent').value) || 0;
-
-        const discountAmount = basePrice * discountPercent / 100;
-        $('#modalDiscountAmount').val(discountAmount.toFixed(2));
-        discountField.value = discountAmount.toFixed(2);
-
-        const salesTax3rd = basePrice * rate / 100;
-        salesTaxField.value = salesTax3rd.toFixed(2);
-
-        const exclVal = basePrice - discountAmount;
-        $('#modalValueSalesExcludingST').val(exclVal.toFixed(2));
-
-        const ghAmount = (exclVal + salesTax3rd) * ghPercent / 100;
-        $('#modalGhAmount').val(ghAmount.toFixed(2));
-
-        if (rate > 0 && basePrice > 0) {
-            salesTaxField.classList.remove('bg-gray-50', 'bg-red-50');
-            salesTaxField.classList.add('bg-green-50');
-            salesTaxField.title = `3rd Schedule Tax: ${basePrice.toFixed(2)} × ${rate}% = ${salesTax3rd.toFixed(2)}`;
         }
 
-        const furtherTaxAmt = exclVal * 4 / 100;
-        if ($('#buyerRegistrationType').val() === 'Unregistered') {
-            valueFurtherField.value = furtherTaxAmt.toFixed(2);
-        }
-    } else {
-        const rater = parseFloat(rateSelecter.value) || 0;
-        const totalTaxvalue = (rater * taxter) / 100;
-        const total = (rater + totalTaxvalue) * qty;
-        const totalDM = rater * qty;
-
-        $('#modalTotalValues').val(total.toFixed(2));
-        $('#modalValueSalesExcludingST').val(totalDM.toFixed(2));
-
-        const valueSales = parseFloat(valueSalesField.value) || 0;
-        const salesTax = (valueSales * rate) / 100;
-        salesTaxField.value = salesTax.toFixed(2);
-
-        if (rate > 0 && valueSales > 0) {
-            salesTaxField.classList.remove('bg-gray-50', 'bg-red-50');
-            salesTaxField.classList.add('bg-green-50');
-            salesTaxField.title = `Calculated: ${valueSales} × ${rate}% = ${salesTax.toFixed(2)}`;
-        } else {
-            salesTaxField.classList.remove('bg-green-50');
-            salesTaxField.classList.add('bg-gray-50');
-            salesTaxField.title = 'Enter rate and value sales to calculate';
-        }
-
-        if ($('#buyerRegistrationType').val() === 'Unregistered') {
-            valueFurtherField.value = (totalDM * 4 / 100).toFixed(2);
-        }
-    }
-}
-
-            });
-
-        // G/H % change handler
-        $(document).on('change', '#modalGhPercent', function() {
-            recalculate3rdSchedule();
-        });
-
-        // Discount % change handler
-        $(document).on('input', '#modalDiscountPercent', function() {
-            recalculate3rdSchedule();
+        // Add input/change event listener for all calculation-related fields in modal
+        $(document).on('input change', 'input[name*="[rateValues]"], input[name*="[quantity]"], #modalRateValues, #modalQuantity, #modalFixedNotifiedValueOrRetailPrice, #modalDiscount, #modalDiscountPercent, #modalGhPercent, #modalValueSalesExcludingST, #modalTotalValues', function(e) {
+            calculateModalSalesTax();
         });
 
         // Modal event listeners

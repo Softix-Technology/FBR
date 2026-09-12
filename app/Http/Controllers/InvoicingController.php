@@ -645,22 +645,27 @@ $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $i
                 // Process the API response - it should contain UOM data for the specific HS code
                 if (is_array($result['data'])) {
                     foreach ($result['data'] as $item) {
-                        // Extract UOM information from the API response
-                        // The API returns: {"uoM_ID": 13, "description": "KG"}
-                        if (isset($item['uoM_ID']) && isset($item['description'])) {
+                        $uomId = $item['uoM_ID'] ?? $item['uom_id'] ?? $item['id'] ?? $item['uoM_Code'] ?? null;
+                        $uomDesc = $item['description'] ?? $item['uoM_DESC'] ?? $item['desc'] ?? $item['itemDescription'] ?? $item['uom_desc'] ?? null;
+
+                        if ($uomId !== null && $uomDesc !== null) {
                             $uomData[] = [
-                                'uoM_ID' => $item['uoM_ID'],
-                                'description' => $item['description']
+                                'uoM_ID' => $uomId,
+                                'description' => $uomDesc
                             ];
                         }
 
                         // Handle nested UOM structure if exists
                         if (isset($item['uoms']) && is_array($item['uoms'])) {
                             foreach ($item['uoms'] as $uom) {
-                                $uomData[] = [
-                                    'uoM_ID' => $uom['uoM_ID'] ?? $uom['id'],
-                                    'description' => $uom['description'] ?? $uom['uoM_DESC'] ?? $uom['desc']
-                                ];
+                                $subId = $uom['uoM_ID'] ?? $uom['id'] ?? $uom['uom_id'] ?? null;
+                                $subDesc = $uom['description'] ?? $uom['uoM_DESC'] ?? $uom['desc'] ?? null;
+                                if ($subId !== null && $subDesc !== null) {
+                                    $uomData[] = [
+                                        'uoM_ID' => $subId,
+                                        'description' => $subDesc
+                                    ];
+                                }
                             }
                         }
                     }
