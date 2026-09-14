@@ -844,6 +844,7 @@ const result = JSON.parse(cleanText);
     });
     // Remove _method field so Laravel doesn't treat this POST as a PUT
     delete data._method;
+    data.draft_id = DRAFT_ID;
     const apiUrl = `${API_BASE}/premiertax/invoicing/submit`;
 
     console.log('=== SUBMIT INVOICE API CALL ===');

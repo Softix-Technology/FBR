@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Buyer;
+use App\Models\DraftInvoice;
 use App\Models\SaleInvoiceFbr;
 use App\Services\FbrApiService;
 use Illuminate\Http\Request;
@@ -136,9 +137,10 @@ class InvoicingController extends Controller
     try {
         // Get invoice data
      $invoiceData = $request->all();
+     $draftId = $request->input('draft_id');
 
         // Remove non-FBR fields that leak from the form
-    unset($invoiceData['_token'], $invoiceData['furtherexpense'], $invoiceData['title'], $invoiceData['notes'], $invoiceData['status'], $invoiceData['cid'], $invoiceData['user_id']);
+    unset($invoiceData['draft_id'], $invoiceData['_token'], $invoiceData['furtherexpense'], $invoiceData['title'], $invoiceData['notes'], $invoiceData['status'], $invoiceData['cid'], $invoiceData['user_id']);
 
     // Clean sellerAddress if it exists
     if (!empty($invoiceData['sellerAddress'])) {
@@ -331,6 +333,18 @@ $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $i
                 'user_id' => $user->id,
                 'invoice_id' => $invoice->id
             ]);
+
+            // If this invoice was submitted from a draft, automatically delete the draft
+            if (!empty($draftId)) {
+                DraftInvoice::where('id', $draftId)
+                    ->where('user_id', $user->id)
+                    ->delete();
+
+                Log::info('Draft invoice deleted automatically after FBR submission', [
+                    'user_id' => $user->id,
+                    'draft_id' => $draftId
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
