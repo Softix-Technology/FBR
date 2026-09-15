@@ -554,6 +554,7 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <script>
     $(document).ready(function() {
         $('.select2').select2({
@@ -678,40 +679,14 @@
         var title = section.getAttribute('data-title') || 'Register';
 
         var scriptHTML = '<script>\n'
-            + buildExcelTableFromContainer.toString() + '\n'
             + 'function exportTableToExcel(filename) {\n'
             + '    var container = document.querySelector(".register-report") || document.body;\n'
-            + '    var title = document.title || "Register";\n'
-            + '    var fname = filename || (title.replace(/\\s+/g, "_") + ".xls");\n'
-            + '    var fnameXls = fname.endsWith(".xlsx") ? fname.replace(/\\.xlsx$/i, ".xls") : (fname.endsWith(".xls") ? fname : fname + ".xls");\n'
-            + '    var cloneTable = buildExcelTableFromContainer(container, title);\n'
-            + '    if (!cloneTable) { alert("No table found"); return; }\n'
-            + '    var html = \'<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">\''
-            + '        + \'<head><meta charset="utf-8">\''
-            + '        + \'<!--[if gte mso 9]><xml><\' + \'x:ExcelWorkbook><\' + \'x:ExcelWorksheets><\' + \'x:ExcelWorksheet>\''
-            + '        + \'<\' + \'x:Name>\' + title.substring(0, 31) + \'</\' + \'x:Name>\''
-            + '        + \'<\' + \'x:WorksheetOptions><\' + \'x:DisplayGridlines/></\' + \'x:WorksheetOptions>\''
-            + '        + \'</\' + \'x:ExcelWorksheet></\' + \'x:ExcelWorksheets></\' + \'x:ExcelWorkbook></xml><![endif]-->\''
-            + '        + \'<style>\''
-            + '        + \'table{border-collapse:collapse;width:100%;font-family:"Times New Roman", Times, serif;} \''
-            + '        + \'th,td{border:1px solid #000;padding:4px;} \''
-            + '        + \'th{background:#d9f2b4;font-weight:bold;} \''
-            + '        + \'.no{text-align:right;} \''
-            + '        + \'.no-border{border:none !important;} \''
-            + '        + \'.date-border-top{border-top:1px solid #000 !important; border-left:1px solid #000 !important; border-right:1px solid #000 !important; border-bottom:none !important;} \''
-            + '        + \'.date-border-mid{border-left:1px solid #000 !important; border-right:1px solid #000 !important; border-top:none !important; border-bottom:none !important;} \''
-            + '        + \'.date-border-bot{border-left:1px solid #000 !important; border-right:1px solid #000 !important; border-bottom:1px solid #000 !important; border-top:none !important;} \''
-            + '        + \'</style>\''
-            + '        + \'</head><body>\' + cloneTable.outerHTML + \'</body></html>\';'
-            + '    var blob = new Blob(["\\ufeff" + html], { type: "application/vnd.ms-excel" });\n'
-            + '    var url = URL.createObjectURL(blob);\n'
-            + '    var a = document.createElement("a");\n'
-            + '    a.href = url;\n'
-            + '    a.download = fnameXls;\n'
-            + '    document.body.appendChild(a);\n'
-            + '    a.click();\n'
-            + '    document.body.removeChild(a);\n'
-            + '    URL.revokeObjectURL(url);\n'
+            + '    var fname = filename || "Register.xlsx";\n'
+            + '    if (window.opener && typeof window.opener.doExcelExport === "function") {\n'
+            + '        window.opener.doExcelExport(container, fname);\n'
+            + '    } else {\n'
+            + '        alert("Export not available. Please open the report again from the main window.");\n'
+            + '    }\n'
             + '}\n'
             + '<\/script>';
 
@@ -730,48 +705,214 @@
         }, 400);
     }
 
-    function exportSectionToExcel(sectionId, customFilename) {
-        var section = document.getElementById(sectionId);
-        if (!section) return;
-        
-        var title = section.getAttribute('data-title') || 'Report';
-        var filename = customFilename || (title.replace(/\s+/g, '_') + '.xls');
-        var fnameXls = filename.endsWith('.xlsx') ? filename.replace(/\.xlsx$/i, '.xls') : (filename.endsWith('.xls') ? filename : filename + '.xls');
-        
-        var cloneTable = buildExcelTableFromContainer(section, title);
-        if (!cloneTable) {
-            alert('No data available to export.');
-            return;
+    async function doExcelExport(container, filename) {
+        var ExcelJS = window.ExcelJS;
+        if (!ExcelJS) { alert('Excel library not available. Please refresh the page.'); return; }
+
+        var title = (container.getAttribute && container.getAttribute('data-title')) || document.title || 'Register';
+        var fname = filename || (title.replace(/\s+/g, '_') + '.xlsx');
+        var fnameXlsx = fname.endsWith('.xlsx') ? fname : (fname.replace(/\.xls$/i, '') + '.xlsx');
+
+        var table = container.querySelector('table.data') || container.querySelector('table');
+        if (!table) { alert('No data found to export.'); return; }
+
+        var companyName = (container.querySelector('.company h2') || {}).innerText || '';
+        var addr       = (container.querySelector('.company .address') || {}).innerText || '';
+        var tax        = (container.querySelector('.company .taxno') || {}).innerText || '';
+        var pageLabel  = (container.querySelector('.page-label') || {}).innerText || '';
+        var reportTitle= (container.querySelector('.title') || {}).innerText || title;
+        companyName = companyName.trim(); addr = addr.trim(); tax = tax.trim();
+        pageLabel = pageLabel.trim(); reportTitle = reportTitle.trim();
+
+        var dateFrom = '', dateTo = '';
+        var dateBoxTbl = container.querySelector('.date-box table');
+        if (dateBoxTbl) {
+            var dr = dateBoxTbl.querySelectorAll('tr');
+            if (dr.length >= 1 && dr[0].children.length >= 2) dateFrom = dr[0].children[1].innerText.trim();
+            if (dr.length >= 2 && dr[1].children.length >= 2) dateTo   = dr[1].children[1].innerText.trim();
         }
 
-        var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'
-            + '<head><meta charset="utf-8">'
-            + '<!--[if gte mso 9]><xml><' + 'x:ExcelWorkbook><' + 'x:ExcelWorksheets><' + 'x:ExcelWorksheet>'
-            + '<' + 'x:Name>' + title.substring(0, 31) + '</' + 'x:Name>'
-            + '<' + 'x:WorksheetOptions><' + 'x:DisplayGridlines/></' + 'x:WorksheetOptions>'
-            + '</' + 'x:ExcelWorksheet></' + 'x:ExcelWorksheets></' + 'x:ExcelWorkbook></xml><![endif]-->'
-            + '<style>'
-            + 'table{border-collapse:collapse;width:100%;font-family:\'Times New Roman\', Times, serif;} '
-            + 'th,td{border:1px solid #000;padding:4px;} '
-            + 'th{background:#d9f2b4;font-weight:bold;} '
-            + '.no{text-align:right;} '
-            + '.no-border{border:none !important;} '
-            + '.date-border-top{border-top:1px solid #000 !important; border-left:1px solid #000 !important; border-right:1px solid #000 !important; border-bottom:none !important;} '
-            + '.date-border-mid{border-left:1px solid #000 !important; border-right:1px solid #000 !important; border-top:none !important; border-bottom:none !important;} '
-            + '.date-border-bot{border-left:1px solid #000 !important; border-right:1px solid #000 !important; border-bottom:1px solid #000 !important; border-top:none !important;} '
-            + '</style>'
-            + '</head><body>' + cloneTable.outerHTML + '</body></html>';
+        var headers = [];
+        table.querySelectorAll('thead th').forEach(function(th) {
+            if (th.style.display !== 'none') headers.push(th.innerText.trim());
+        });
 
-        var blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
+        var bodyRows = [];
+        table.querySelectorAll('tbody tr').forEach(function(tr) {
+            var row = [];
+            tr.querySelectorAll('td').forEach(function(td) {
+                if (td.style.display !== 'none') row.push(td.innerText.trim());
+            });
+            if (row.length > 0) bodyRows.push(row);
+        });
+
+        var footerRows = [];
+        table.querySelectorAll('tfoot tr').forEach(function(tr) {
+            var row = [];
+            tr.querySelectorAll('td').forEach(function(td) {
+                if (td.style.display !== 'none') row.push(td.innerText.trim());
+            });
+            if (row.length > 0) footerRows.push(row);
+        });
+
+        var colCount = headers.length || 2;
+        var workbook = new ExcelJS.Workbook();
+        var ws = workbook.addWorksheet(reportTitle.substring(0, 31));
+        var r = 1;
+
+        function thin() { return { style: 'thin' }; }
+        function borderAll() { return { top: thin(), left: thin(), bottom: thin(), right: thin() }; }
+
+        // Page label — right-aligned in last column
+        if (pageLabel) {
+            var pc = ws.getRow(r).getCell(colCount);
+            pc.value = pageLabel;
+            pc.alignment = { horizontal: 'right' };
+            pc.font = { name: 'Times New Roman', size: 10 };
+            r++;
+        }
+
+        // Company Name — bold, 16pt, centered, merged
+        if (companyName) {
+            ws.mergeCells(r, 1, r, colCount);
+            var c = ws.getRow(r).getCell(1);
+            c.value = companyName.toUpperCase();
+            c.font = { bold: true, size: 16, name: 'Times New Roman' };
+            c.alignment = { horizontal: 'center' };
+            r++;
+        }
+
+        // Address — 10pt, centered
+        if (addr) {
+            ws.mergeCells(r, 1, r, colCount);
+            var c = ws.getRow(r).getCell(1);
+            c.value = addr;
+            c.font = { size: 10, name: 'Times New Roman' };
+            c.alignment = { horizontal: 'center' };
+            r++;
+        }
+
+        // STRN — 10pt, centered
+        if (tax) {
+            ws.mergeCells(r, 1, r, colCount);
+            var c = ws.getRow(r).getCell(1);
+            c.value = tax;
+            c.font = { size: 10, name: 'Times New Roman' };
+            c.alignment = { horizontal: 'center' };
+            r++;
+        }
+
+        // Report Title — bold, italic, 18pt, blue, centered
+        if (reportTitle) {
+            ws.mergeCells(r, 1, r, colCount);
+            var c = ws.getRow(r).getCell(1);
+            c.value = reportTitle;
+            c.font = { bold: true, italic: true, size: 18, color: { argb: 'FF0000FF' }, name: 'Times New Roman' };
+            c.alignment = { horizontal: 'center' };
+            ws.getRow(r).height = 28;
+            r++;
+        }
+
+        // Date box — bordered like print preview
+        var dRow1 = ws.getRow(r);
+        dRow1.getCell(1).value = 'Date';
+        dRow1.getCell(1).font = { bold: true, name: 'Times New Roman', size: 10 };
+        dRow1.getCell(1).border = { top: thin(), left: thin(), right: thin() };
+        dRow1.getCell(2).border = { top: thin(), right: thin() };
+        r++;
+
+        var dRow2 = ws.getRow(r);
+        dRow2.getCell(1).value = 'Date From :';
+        dRow2.getCell(1).font = { name: 'Times New Roman', size: 10 };
+        dRow2.getCell(1).border = { left: thin(), right: thin() };
+        dRow2.getCell(2).value = dateFrom;
+        dRow2.getCell(2).font = { bold: true, name: 'Times New Roman', size: 10 };
+        dRow2.getCell(2).alignment = { horizontal: 'right' };
+        dRow2.getCell(2).border = { right: thin() };
+        r++;
+
+        var dRow3 = ws.getRow(r);
+        dRow3.getCell(1).value = 'Date To :';
+        dRow3.getCell(1).font = { name: 'Times New Roman', size: 10 };
+        dRow3.getCell(1).border = { left: thin(), bottom: thin(), right: thin() };
+        dRow3.getCell(2).value = dateTo;
+        dRow3.getCell(2).font = { bold: true, name: 'Times New Roman', size: 10 };
+        dRow3.getCell(2).alignment = { horizontal: 'right' };
+        dRow3.getCell(2).border = { bottom: thin(), right: thin() };
+        r++;
+
+        r++; // Spacer row
+
+        // Table header row — bold, green fill, centered, bordered
+        if (headers.length > 0) {
+            var hRow = ws.getRow(r);
+            headers.forEach(function(h, i) {
+                var cell = hRow.getCell(i + 1);
+                cell.value = h;
+                cell.font = { bold: true, name: 'Times New Roman', size: 9 };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9F2B4' } };
+                cell.alignment = { horizontal: 'center', wrapText: true, vertical: 'middle' };
+                cell.border = borderAll();
+            });
+            hRow.height = 30;
+            r++;
+        }
+
+        // Data rows
+        bodyRows.forEach(function(rowData) {
+            var dRow = ws.getRow(r);
+            rowData.forEach(function(val, i) {
+                var cell = dRow.getCell(i + 1);
+                cell.value = val;
+                cell.font = { name: 'Times New Roman', size: 9 };
+                cell.border = borderAll();
+            });
+            r++;
+        });
+
+        // Footer / totals rows — bold
+        footerRows.forEach(function(rowData) {
+            var dRow = ws.getRow(r);
+            rowData.forEach(function(val, i) {
+                var cell = dRow.getCell(i + 1);
+                cell.value = val;
+                cell.font = { bold: true, name: 'Times New Roman', size: 9 };
+                cell.border = borderAll();
+            });
+            r++;
+        });
+
+        // Column widths
+        var colWidths = [];
+        for (var ci = 0; ci < colCount; ci++) {
+            var w = 14;
+            if (ci === 0) w = 11;
+            else if (ci === 1) w = 22;
+            else if (ci === 2) w = 24;
+            else if (ci === 3) w = 18;
+            colWidths.push({ width: w });
+        }
+        ws.columns = colWidths;
+
+        // Write and download
+        var buffer = await workbook.xlsx.writeBuffer();
+        var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
         a.href = url;
-        a.download = fnameXls;
+        a.download = fnameXlsx;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
+
+    function exportSectionToExcel(sectionId, customFilename) {
+        var section = document.getElementById(sectionId);
+        if (!section) return;
+        var title = section.getAttribute('data-title') || 'Report';
+        var filename = customFilename || (title.replace(/\s+/g, '_') + '.xlsx');
+        doExcelExport(section, filename);
+    }
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 @endsection

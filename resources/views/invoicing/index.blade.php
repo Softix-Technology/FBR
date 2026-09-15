@@ -175,12 +175,23 @@
                                     <h2 class="text-lg font-semibold text-gray-900">Invoice Items</h2>
                                 </div>
                                 <div class="flex flex-col items-end">
-                                    <button type="button" id="addItemBtn" disabled class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-200 active:bg-blue-600 disabled:opacity-25 transition opacity-50 cursor-not-allowed" title="Please select buyer province and registration type first">
-                                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                                        </svg>
-                                        Add Item
-                                    </button>
+                                    <div class="flex items-center space-x-2">
+                                         @if(in_array(($user->c_id ?? ''), [11, '11', 53, '53']))
+                                             <button type="button" id="uploadExcelBtn" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-xs uppercase tracking-widest transition shadow-sm hover:opacity-90" style="background-color: #059669 !important; color: #ffffff !important;">
+                                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke: #ffffff !important;">
+                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                                                 </svg>
+                                                 <span style="color: #ffffff !important; font-weight: 600;">Upload Excel</span>
+                                             </button>
+                                             <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden">
+                                         @endif
+                                        <button type="button" id="addItemBtn" disabled class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-200 active:bg-blue-600 disabled:opacity-25 transition opacity-50 cursor-not-allowed" title="Please select buyer province and registration type first">
+                                                <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                                            </svg>
+                                            Add Item
+                                        </button>
+                                    </div>
                                     <div id="addItemRequirement" class="mt-1 text-xs text-red-600">
                                         Please select buyer province and registration type first
                                         <button type="button" onclick="validateBuyerRequirements()" class="ml-2 text-blue-600 underline hover:text-blue-800">
@@ -278,6 +289,125 @@
 </button>
                           </div>
                     </form>
+
+                    <!-- Uploaded Excel Invoices Section (Restricted to allowed CIDs) -->
+                    @if(in_array(($user->c_id ?? ''), [11, '11', 53, '53']))
+                    <div id="uploadedExcelContainer" class="mt-8 bg-white border border-gray-200 rounded-lg shadow-sm p-6 hidden">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 text-emerald-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <h2 class="text-lg font-semibold text-gray-900">Uploaded Excel Invoices</h2>
+                                <span id="uploadedItemCountBadge" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">0 rows</span>
+                            </div>
+                            <div>
+                                <button type="button" onclick="clearUploadedExcelData()" class="text-xs text-red-600 hover:text-red-800 font-medium underline">Clear Uploaded Data</button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table id="uploadedExcelTable" class="min-w-full divide-y divide-gray-200 text-xs border border-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">#</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">CNIC</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Buyer Name</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Inv Date</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Product Name</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">HS Code</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Price</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Qty</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Retail Val</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Disc %</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Discount</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Ex Value</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Sales Tax</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Inclusive</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Status / Error</th>
+                                        <th class="px-3 py-2 text-center font-medium text-gray-500 uppercase">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="uploadedExcelTableBody" class="bg-white divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Edit Uploaded Item Modal -->
+                    <div id="editExcelModal" class="fixed inset-0 z-50 overflow-y-auto hidden">
+                        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                            <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="closeEditExcelModal()"></div>
+                            <div class="inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-lg shadow-xl">
+                                <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                                    <h3 class="text-lg font-semibold text-gray-900">Edit Uploaded Invoice Item</h3>
+                                    <button type="button" onclick="closeEditExcelModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+                                </div>
+                                <div class="p-6 space-y-4">
+                                    <input type="hidden" id="editExcelRowIndex">
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">CNIC</label>
+                                            <input type="text" id="editExcelCnic" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Buyer Name</label>
+                                            <input type="text" id="editExcelName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Invoice Date</label>
+                                            <input type="text" id="editExcelDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Product Name</label>
+                                            <input type="text" id="editExcelProductName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">HS Code</label>
+                                            <input type="text" id="editExcelHsCode" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Per Unit Sale Price</label>
+                                            <input type="number" step="0.01" id="editExcelPrice" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Quantity</label>
+                                            <input type="number" id="editExcelQty" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Retail Value</label>
+                                            <input type="number" step="0.01" id="editExcelRetailValue" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Discount %</label>
+                                            <input type="number" step="0.01" id="editExcelDiscPct" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Discount Amount</label>
+                                            <input type="number" step="0.01" id="editExcelDiscount" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Ex Value</label>
+                                            <input type="number" step="0.01" id="editExcelExValue" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Sales Tax</label>
+                                            <input type="number" step="0.01" id="editExcelSalesTax" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div class="col-span-2">
+                                            <label class="block text-xs font-medium text-gray-700">Inclusive Value</label>
+                                            <input type="number" step="0.01" id="editExcelInclusiveValue" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-2">
+                                    <button type="button" onclick="closeEditExcelModal()" class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">Cancel</button>
+                                    <button type="button" onclick="saveEditedExcelRow()" class="px-4 py-2 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-500">Save Changes</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -448,6 +578,8 @@
             </div>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <script>
         // Configuration
@@ -3866,6 +3998,274 @@ const result = JSON.parse(cleanText);
     }
     obj.items = Object.values(items);
     return obj;
+}
+
+// Upload Excel Handler (Restricted to CID 53)
+let uploadedExcelData = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadExcelBtn = document.getElementById('uploadExcelBtn');
+    const excelFileInput = document.getElementById('excelFileInput');
+
+    if (uploadExcelBtn && excelFileInput) {
+        uploadExcelBtn.addEventListener('click', function() {
+            excelFileInput.click();
+        });
+
+        excelFileInput.addEventListener('change', handleExcelUpload);
+    }
+});
+
+function handleExcelUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        try {
+            const data = evt.target.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            if (!rawRows || rawRows.length < 2) {
+                alert('No data found in uploaded Excel file.');
+                return;
+            }
+
+            uploadedExcelData = [];
+            // Skip header row (row index 0)
+            for (let i = 1; i < rawRows.length; i++) {
+                const r = rawRows[i];
+                if (!r || r.length === 0 || (!r[1] && !r[2])) continue; // skip empty rows
+
+                uploadedExcelData.push({
+                    srNo: r[0] || i,
+                    cnic: String(r[1] || '').trim(),
+                    name: String(r[2] || '').trim(),
+                    invoiceDate: String(r[3] || '').trim(),
+                    price: parseFloat(r[4]) || 0,
+                    quantity: parseFloat(r[5]) || 0,
+                    hsCode: String(r[6] || '').trim(),
+                    productName: String(r[7] || '').trim(),
+                    retailValue: parseFloat(r[8]) || 0,
+                    discPct: parseFloat(r[9]) || 0,
+                    discount: parseFloat(r[10]) || 0,
+                    exValue: parseFloat(r[11]) || 0,
+                    salesTax: parseFloat(r[12]) || 0,
+                    inclusiveValue: parseFloat(r[13]) || 0,
+                    status: 'ready',
+                    error: null,
+                    fbrInvoiceNo: null
+                });
+            }
+
+            renderUploadedExcelTable();
+            document.getElementById('excelFileInput').value = '';
+        } catch (err) {
+            console.error('Excel parse error:', err);
+            alert('Failed to parse Excel file: ' + err.message);
+        }
+    };
+    reader.readAsBinaryString(file);
+}
+
+function renderUploadedExcelTable() {
+    const container = document.getElementById('uploadedExcelContainer');
+    const tbody = document.getElementById('uploadedExcelTableBody');
+    const badge = document.getElementById('uploadedItemCountBadge');
+
+    if (!container || !tbody) return;
+
+    if (uploadedExcelData.length === 0) {
+        container.classList.add('hidden');
+        tbody.innerHTML = '';
+        return;
+    }
+
+    container.classList.remove('hidden');
+    badge.textContent = `${uploadedExcelData.length} rows`;
+
+    let html = '';
+    uploadedExcelData.forEach((row, index) => {
+        let statusHtml = '';
+        if (row.status === 'submitting') {
+            statusHtml = `<span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold animate-pulse">Submitting...</span>`;
+        } else if (row.status === 'success') {
+            statusHtml = `<span class="px-2 py-0.5 rounded bg-green-100 text-green-800 font-semibold">Generated</span>`;
+            if (row.fbrInvoiceNo) {
+                statusHtml += `<div class="text-xs text-green-700 font-mono mt-0.5">${row.fbrInvoiceNo}</div>`;
+            }
+        } else if (row.status === 'error') {
+            statusHtml = `<span class="px-2 py-0.5 rounded bg-red-100 text-red-800 font-semibold">Failed</span>`;
+            if (row.error) {
+                statusHtml += `<div class="text-xs text-red-600 mt-1 max-w-xs break-words">${row.error}</div>`;
+            }
+        } else {
+            statusHtml = `<span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-semibold">Ready</span>`;
+        }
+
+        html += `
+            <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2">${index + 1}</td>
+                <td class="px-3 py-2 font-mono">${row.cnic}</td>
+                <td class="px-3 py-2 font-medium text-gray-900">${row.name}</td>
+                <td class="px-3 py-2 whitespace-nowrap">${row.invoiceDate}</td>
+                <td class="px-3 py-2">${row.productName}</td>
+                <td class="px-3 py-2 font-mono">${row.hsCode}</td>
+                <td class="px-3 py-2 text-right">${row.price.toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${row.quantity}</td>
+                <td class="px-3 py-2 text-right">${row.retailValue.toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${row.discPct}%</td>
+                <td class="px-3 py-2 text-right">${row.discount.toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${row.exValue.toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${row.salesTax.toLocaleString()}</td>
+                <td class="px-3 py-2 text-right font-semibold text-gray-900">${row.inclusiveValue.toLocaleString()}</td>
+                <td class="px-3 py-2">${statusHtml}</td>
+                <td class="px-3 py-2 text-center whitespace-nowrap space-x-1">
+                    <button type="button" onclick="openEditExcelModal(${index})" class="px-2 py-1 rounded font-medium text-xs transition" style="background-color: #eff6ff !important; color: #2563eb !important; border: 1px solid #bfdbfe !important;" title="Edit row">
+                        ✏️ Edit
+                    </button>
+                    <button type="button" onclick="generateExcelInvoiceFbr(${index})" ${row.status === 'submitting' ? 'disabled' : ''} class="px-2 py-1 rounded font-medium text-xs transition disabled:opacity-50" style="background-color: #059669 !important; color: #ffffff !important; border: 1px solid #047857 !important;" title="Generate on FBR">
+                        🚀 Generate
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function openEditExcelModal(index) {
+    const row = uploadedExcelData[index];
+    if (!row) return;
+
+    document.getElementById('editExcelRowIndex').value = index;
+    document.getElementById('editExcelCnic').value = row.cnic;
+    document.getElementById('editExcelName').value = row.name;
+    document.getElementById('editExcelDate').value = row.invoiceDate;
+    document.getElementById('editExcelProductName').value = row.productName;
+    document.getElementById('editExcelHsCode').value = row.hsCode;
+    document.getElementById('editExcelPrice').value = row.price;
+    document.getElementById('editExcelQty').value = row.quantity;
+    document.getElementById('editExcelRetailValue').value = row.retailValue;
+    document.getElementById('editExcelDiscPct').value = row.discPct;
+    document.getElementById('editExcelDiscount').value = row.discount;
+    document.getElementById('editExcelExValue').value = row.exValue;
+    document.getElementById('editExcelSalesTax').value = row.salesTax;
+    document.getElementById('editExcelInclusiveValue').value = row.inclusiveValue;
+
+    document.getElementById('editExcelModal').classList.remove('hidden');
+}
+
+function closeEditExcelModal() {
+    document.getElementById('editExcelModal').classList.add('hidden');
+}
+
+function saveEditedExcelRow() {
+    const index = parseInt(document.getElementById('editExcelRowIndex').value);
+    if (isNaN(index) || !uploadedExcelData[index]) return;
+
+    uploadedExcelData[index].cnic = document.getElementById('editExcelCnic').value;
+    uploadedExcelData[index].name = document.getElementById('editExcelName').value;
+    uploadedExcelData[index].invoiceDate = document.getElementById('editExcelDate').value;
+    uploadedExcelData[index].productName = document.getElementById('editExcelProductName').value;
+    uploadedExcelData[index].hsCode = document.getElementById('editExcelHsCode').value;
+    uploadedExcelData[index].price = parseFloat(document.getElementById('editExcelPrice').value) || 0;
+    uploadedExcelData[index].quantity = parseFloat(document.getElementById('editExcelQty').value) || 0;
+    uploadedExcelData[index].retailValue = parseFloat(document.getElementById('editExcelRetailValue').value) || 0;
+    uploadedExcelData[index].discPct = parseFloat(document.getElementById('editExcelDiscPct').value) || 0;
+    uploadedExcelData[index].discount = parseFloat(document.getElementById('editExcelDiscount').value) || 0;
+    uploadedExcelData[index].exValue = parseFloat(document.getElementById('editExcelExValue').value) || 0;
+    uploadedExcelData[index].salesTax = parseFloat(document.getElementById('editExcelSalesTax').value) || 0;
+    uploadedExcelData[index].inclusiveValue = parseFloat(document.getElementById('editExcelInclusiveValue').value) || 0;
+
+    closeEditExcelModal();
+    renderUploadedExcelTable();
+}
+
+function clearUploadedExcelData() {
+    if (confirm('Are you sure you want to clear all uploaded Excel rows?')) {
+        uploadedExcelData = [];
+        renderUploadedExcelTable();
+    }
+}
+
+async function generateExcelInvoiceFbr(index) {
+    const row = uploadedExcelData[index];
+    if (!row) return;
+
+    row.status = 'submitting';
+    row.error = null;
+    renderUploadedExcelTable();
+
+    const sellerNTN = document.getElementById('sellerNTNCNIC')?.value || window.appData?.user?.cinc_ntn || '';
+    const sellerName = document.getElementById('sellerBusinessName')?.value || window.appData?.user?.business_name || '';
+    const sellerProvince = document.getElementById('sellerProvince')?.value || window.appData?.user?.province || 'Punjab';
+    const sellerAddress = document.getElementById('sellerAddress')?.value || window.appData?.user?.address || 'N/A';
+
+    const payload = {
+        sellerNTNCNIC: sellerNTN,
+        sellerBusinessName: sellerName,
+        sellerProvince: sellerProvince,
+        sellerAddress: sellerAddress,
+        buyerNTNCNIC: row.cnic,
+        buyerBusinessName: row.name,
+        buyerProvince: sellerProvince,
+        buyerAddress: 'N/A',
+        buyerRegistrationType: row.cnic ? 'Registered' : 'Unregistered',
+        invoiceType: 'Sale Invoice',
+        invoiceDate: row.invoiceDate || new Date().toISOString().split('T')[0],
+        scenarioId: '1',
+        items: [
+            {
+                productDescription: row.productName || 'Plastic Articles',
+                hsCode: row.hsCode || '3926.1000',
+                quantity: row.quantity,
+                uoM: 'Numbers, Count, Pcs, Units',
+                saleType: 'Third Schedule Goods',
+                rate: '18%',
+                valueSalesExcludingST: row.exValue,
+                salesTaxApplicable: row.salesTax,
+                fixedNotifiedValueOrRetailPrice: row.retailValue,
+                discount: row.discount,
+                furtherTax: 0,
+                extraTax: '',
+                totalValues: row.inclusiveValue
+            }
+        ]
+    };
+
+    try {
+        const response = await fetch(`${API_BASE}/premiertax/invoicing/submit`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const text = await response.text();
+        const cleanText = text.trim().startsWith('{') ? text : text.substring(text.indexOf('{'));
+        const result = JSON.parse(cleanText);
+
+        if (result.success) {
+            row.status = 'success';
+            row.fbrInvoiceNo = result.data?.invoiceNumber || result.invoiceNumber || 'Submitted';
+        } else {
+            row.status = 'error';
+            row.error = typeof result.message === 'object' ? JSON.stringify(result.message) : (result.message || 'FBR Submission Failed');
+        }
+    } catch (err) {
+        row.status = 'error';
+        row.error = err.message || 'Network error';
+    }
+
+    renderUploadedExcelTable();
 }
 
 </script>
