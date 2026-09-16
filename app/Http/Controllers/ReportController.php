@@ -69,7 +69,7 @@ class ReportController extends Controller
         $query->where('buyer_business_name', 'like', '%' . $request->client . '%');
     }
 
-    $salesInvoices = $query->orderBy('invoice_date', 'asc')->get();
+    $salesInvoices = $query->orderBy('invoice_date', 'asc')->orderBy('id', 'asc')->get();
 
 $availableBillNumbers = SaleInvoiceFbr::where('cid', $user->c_id)
     ->distinct()
@@ -90,7 +90,7 @@ $availableBillNumbers = SaleInvoiceFbr::where('cid', $user->c_id)
             $stax = floatval($it['salesTaxApplicable'] ?? 0);
             $gh = floatval($it['ghAmount'] ?? 0);
             $ft = floatval($it['furtherTax'] ?? 0);
-            $discount = floatval($it['discount'] ?? 0);
+            $discount = floatval($it['discountAmount'] ?? ($it['discount'] ?? 0));
             $retailExcl = floatval($it['fixedNotifiedValueOrRetailPrice'] ?? 0);
 
             $ghTotal += $gh;

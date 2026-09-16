@@ -72,7 +72,7 @@ public function index(Request $request)
         $query->where('buyer_business_name', 'like', '%' . $request->client . '%');
     }
 
-    $salesInvoices = $query->where('cid',auth()->user()->c_id)->get();
+    $salesInvoices = $query->where('cid', auth()->user()->c_id)->orderBy('invoice_date', 'asc')->orderBy('id', 'asc')->get();
 
     // Pass the filtered results + data for dropdowns (e.g., availableBillNumbers, parties)
     $availableBillNumbers = SaleInvoiceFbr::where('cid', auth()->user()->c_id)->distinct()->pluck('fbr_invoice_no');
@@ -93,7 +93,7 @@ public function index(Request $request)
             $stax = floatval($it['salesTaxApplicable'] ?? 0);
             $gh = floatval($it['ghAmount'] ?? 0);
             $ft = floatval($it['furtherTax'] ?? 0);
-            $discount = floatval($it['discount'] ?? 0);
+            $discount = floatval($it['discountAmount'] ?? ($it['discount'] ?? 0));
             $retailExcl = floatval($it['fixedNotifiedValueOrRetailPrice'] ?? 0);
 
             $ghTotal += $gh;
