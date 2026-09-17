@@ -4016,6 +4016,61 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function formatExcelDate(val) {
+    if (!val && val !== 0) return '';
+    // If it's a Date object
+    if (val instanceof Date && !isNaN(val.getTime())) {
+        const y = val.getFullYear();
+        const m = String(val.getMonth() + 1).padStart(2, '0');
+        const d = String(val.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+    // Check if numeric serial number (e.g. 46235 for 8/1/2026)
+    if (typeof val === 'number' || (typeof val === 'string' && /^\d+(\.\d+)?$/.test(val.trim()))) {
+        const num = parseFloat(val);
+        if (!isNaN(num) && num > 20000 && num < 100000) {
+            const utcDays = Math.floor(num - 25569);
+            const date = new Date(utcDays * 86400 * 1000);
+            const y = date.getUTCFullYear();
+            const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+            const d = String(date.getUTCDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+    }
+    const str = String(val).trim();
+    // Format: YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        return str;
+    }
+    // Format: YYYY/M/D or YYYY-M-D or YYYY.M.D
+    const ymMatch = str.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+    if (ymMatch) {
+        return ymMatch[1] + '-' + ymMatch[2].padStart(2, '0') + '-' + ymMatch[3].padStart(2, '0');
+    }
+    // Format: D/M/YYYY or M/D/YYYY
+    const dmyMatch = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+    if (dmyMatch) {
+        const p1 = parseInt(dmyMatch[1], 10);
+        const p2 = parseInt(dmyMatch[2], 10);
+        const y = dmyMatch[3];
+        if (p1 > 12) {
+            return y + '-' + String(p2).padStart(2, '0') + '-' + String(p1).padStart(2, '0');
+        } else if (p2 > 12) {
+            return y + '-' + String(p1).padStart(2, '0') + '-' + String(p2).padStart(2, '0');
+        } else {
+            const parsed = new Date(str);
+            if (!isNaN(parsed.getTime())) {
+                const py = parsed.getFullYear();
+                const pm = String(parsed.getMonth() + 1).padStart(2, '0');
+                const pd = String(parsed.getDate()).padStart(2, '0');
+                return py + '-' + pm + '-' + pd;
+            }
+            return y + '-' + String(p1).padStart(2, '0') + '-' + String(p2).padStart(2, '0');
+        }
+    }
+    return str;
+}
+
 function handleExcelUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -4040,17 +4095,22 @@ function handleExcelUpload(e) {
                 const r = rawRows[i];
                 if (!r || r.length === 0 || (!r[1] && !r[2])) continue; // skip empty rows
 
+                let parsedDiscPct = parseFloat(r[9]) || 0;
+                if (parsedDiscPct > 0 && parsedDiscPct < 1) {
+                    parsedDiscPct = Math.round(parsedDiscPct * 100 * 1000) / 1000;
+                }
+
                 uploadedExcelData.push({
                     srNo: r[0] || i,
                     cnic: String(r[1] || '').trim(),
                     name: String(r[2] || '').trim(),
-                    invoiceDate: String(r[3] || '').trim(),
+                    invoiceDate: formatExcelDate(r[3]),
                     price: parseFloat(r[4]) || 0,
                     quantity: parseFloat(r[5]) || 0,
                     hsCode: String(r[6] || '').trim(),
                     productName: String(r[7] || '').trim(),
                     retailValue: parseFloat(r[8]) || 0,
-                    discPct: parseFloat(r[9]) || 0,
+                    discPct: parsedDiscPct,
                     discount: parseFloat(r[10]) || 0,
                     exValue: parseFloat(r[11]) || 0,
                     salesTax: parseFloat(r[12]) || 0,
@@ -4206,6 +4266,55 @@ async function generateExcelInvoiceFbr(index) {
     const sellerProvince = document.getElementById('sellerProvince')?.value || window.appData?.user?.province || 'Punjab';
     const sellerAddress = document.getElementById('sellerAddress')?.value || window.appData?.user?.address || 'N/A';
 
+    // Determine valid saleType and uoM from FBR reference API data
+    let thirdScheduleDesc = ' 3rd Schedule Goods ';
+    const allTypes = (typeof transactionTypes !== 'undefined' && Array.isArray(transactionTypes))
+        ? transactionTypes 
+        : (window.appData?.transactionTypes || []);
+    const matchedType = allTypes.find(t => 
+        t.transactioN_TYPE_ID == 23 || 
+        (t.transactioN_DESC && t.transactioN_DESC.toLowerCase().includes('3rd schedule'))
+    );
+    if (matchedType && matchedType.transactioN_DESC) {
+        thirdScheduleDesc = matchedType.transactioN_DESC;
+    }
+
+    let uomDesc = 'Numbers, pieces, units';
+    const allUoms = (typeof uoMs !== 'undefined' && Array.isArray(uoMs))
+        ? uoMs 
+        : (window.appData?.uoMs || []);
+    const matchedUom = allUoms.find(u => 
+        (u.description && u.description.toLowerCase().includes('numbers, pieces, units')) ||
+        (u.uoM_DESC && u.uoM_DESC.toLowerCase().includes('numbers, pieces, units')) ||
+        (u.uoM_ID == 69 || u.id == 69)
+    );
+    if (matchedUom) {
+        uomDesc = matchedUom.description || matchedUom.uoM_DESC || uomDesc;
+    }
+
+    // Determine buyer registration type from FBR API if cnic is provided
+    let buyerRegType = 'Unregistered';
+    if (row.cnic) {
+        try {
+            const regRes = await fetch(`${API_BASE}/api/fbr/registration-type`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': CSRF_TOKEN
+                },
+                body: JSON.stringify({ registration_no: row.cnic })
+            });
+            const regJson = await regRes.json();
+            if (regJson.success && regJson.data?.registration_type) {
+                const rt = regJson.data.registration_type;
+                buyerRegType = rt.charAt(0).toUpperCase() + rt.slice(1).toLowerCase();
+            }
+        } catch (e) {
+            console.warn('Could not fetch registration type for', row.cnic, e);
+        }
+    }
+
     const payload = {
         sellerNTNCNIC: sellerNTN,
         sellerBusinessName: sellerName,
@@ -4215,7 +4324,7 @@ async function generateExcelInvoiceFbr(index) {
         buyerBusinessName: row.name,
         buyerProvince: sellerProvince,
         buyerAddress: 'N/A',
-        buyerRegistrationType: row.cnic ? 'Registered' : 'Unregistered',
+        buyerRegistrationType: buyerRegType,
         invoiceType: 'Sale Invoice',
         invoiceDate: row.invoiceDate || new Date().toISOString().split('T')[0],
         scenarioId: '1',
@@ -4224,8 +4333,8 @@ async function generateExcelInvoiceFbr(index) {
                 productDescription: row.productName || 'Plastic Articles',
                 hsCode: row.hsCode || '3926.1000',
                 quantity: row.quantity,
-                uoM: 'Numbers, Count, Pcs, Units',
-                saleType: 'Third Schedule Goods',
+                uoM: uomDesc,
+                saleType: thirdScheduleDesc,
                 rate: '18%',
                 valueSalesExcludingST: row.exValue,
                 salesTaxApplicable: row.salesTax,
