@@ -935,6 +935,10 @@ Route::middleware('auth')->group(function () {
     Route::post('premiertax/draftinvoices/bulk-submit', [DraftController::class, 'bulkSubmit'])->name('draftinvoices.bulk-submit');
     Route::post('premiertax/draftinvoices/bulk-submit-all', [DraftController::class, 'bulkSubmitAll'])->name('draftinvoices.bulk-submit-all');
 
+    // 72-Hour Safe Edit and Resubmit for FBR Sale Invoices
+    Route::get('premiertax/sales/invoice/{id}/edit', [App\Http\Controllers\InvoicingController::class, 'editSaleInvoice'])->name('premiertax.sale.edit');
+    Route::post('premiertax/sales/invoice/{id}/resubmit', [App\Http\Controllers\InvoicingController::class, 'resubmitSaleInvoice'])->name('premiertax.sale.resubmit');
+
 });
 
 

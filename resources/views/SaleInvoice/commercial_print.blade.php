@@ -239,10 +239,10 @@
             <td class="left">{{ $itemArray['product_description'] ?? $itemArray['productDescription'] ?? '-' }}</td>
             <td>{{ number_format($qty, 0) }}</td>
             <td>{{ number_format($unitPrice, 3) }}</td>
-            <td>{{ number_format($valueExcl, 2) }}</td>
-            <td>{{ number_format($salesTax, 2) }}</td>
-            <td>{{ number_format($furtherTax, 2) }}</td>
-            <td>{{ number_format($stInclusive, 2) }}</td>
+            <td>{{ number_format($valueExcl, 0) }}</td>
+            <td>{{ number_format($salesTax, 0) }}</td>
+            <td>{{ number_format($furtherTax, 0) }}</td>
+            <td>{{ number_format($stInclusive, 0) }}</td>
           </tr>
         @endforeach
       </tbody>
@@ -251,10 +251,10 @@
           <td class="left">Total</td>
           <td>{{ number_format($grandQty, 0) }}</td>
           <td></td>
-          <td>{{ number_format($grandValueExcl, 2) }}</td>
-          <td>{{ number_format($grandSalesTax, 2) }}</td>
-          <td>{{ number_format($grandFurtherTax, 2) }}</td>
-          <td>{{ number_format($grandSTInclusive, 2) }}</td>
+          <td>{{ number_format($grandValueExcl, 0) }}</td>
+          <td>{{ number_format($grandSalesTax, 0) }}</td>
+          <td>{{ number_format($grandFurtherTax, 0) }}</td>
+          <td>{{ number_format($grandSTInclusive, 0) }}</td>
         </tr>
       </tfoot>
     </table>

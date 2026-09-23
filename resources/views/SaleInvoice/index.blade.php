@@ -107,7 +107,28 @@
                                 <td>{{ $invoice->buyer_business_name ?? 'N/A' }}</td>
                                 <td>{{ \Carbon\Carbon::parse($invoice->invoice_date)->format('Y-m-d') }}</td>
                                 <td>
-                                                                        <a href="{{ route('premiertax.sale.invoice', $invoice->id) }}" 
+                                    @php
+                                        $invoiceCreated = $invoice->created_at ? \Carbon\Carbon::parse($invoice->created_at) : \Carbon\Carbon::parse($invoice->invoice_date);
+                                        $hoursPassed = $invoiceCreated->diffInHours(now());
+                                        $isEditable72h = $hoursPassed <= 72;
+                                        $hoursLeft = max(0, 72 - $hoursPassed);
+                                    @endphp
+
+                                    @if($isEditable72h)
+                                        <a href="{{ route('premiertax.sale.edit', $invoice->id) }}" 
+                                           class="btn btn-sm text-white" 
+                                           style="background-color: #4f46e5; border-color: #4f46e5;"
+                                           title="72h FBR Edit Window: {{ $hoursLeft }} hours left">
+                                            <i class="mdi mdi-pencil"></i> Edit & Resubmit ({{ $hoursLeft }}h)
+                                        </a>
+                                    @else
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" disabled 
+                                                title="72-Hour FBR correction window expired (Locked)">
+                                            <i class="mdi mdi-lock"></i> Locked (>72h)
+                                        </button>
+                                    @endif
+
+                                    <a href="{{ route('premiertax.sale.invoice', $invoice->id) }}" 
                                        class="btn btn-primary btn-sm" target="_blank">
                                         <i class="mdi mdi-printer"></i> Print
                                     </a>
@@ -130,9 +151,6 @@
                                             <i class="mdi mdi-delete"></i> Delete
                                         </button>
                                     </form>
-                        
-
-                        
                                 </td>
                             </tr>
                         @empty

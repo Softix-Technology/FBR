@@ -1492,4 +1492,408 @@ $query = \App\Models\Buyer::query();
             ], 404);
         }
     }
+
+    /**
+     * Display edit form for an existing FBR Sale Invoice within 72 hours
+     */
+    public function editSaleInvoice($id)
+    {
+        $user = Auth::user();
+
+        if (!$user->fbr_access_token) {
+            return redirect()->route('profile.edit')
+                ->with('warning', 'Please set your FBR Access Token in your profile to use the invoicing system.');
+        }
+
+        // Find invoice for this company
+        $invoice = SaleInvoiceFbr::where('cid', $user->c_id)->findOrFail($id);
+
+        // Check 72-hour window
+        $createdAt = $invoice->created_at ? \Carbon\Carbon::parse($invoice->created_at) : \Carbon\Carbon::parse($invoice->invoice_date);
+        $hoursPassed = $createdAt->diffInHours(now());
+        if ($hoursPassed > 72) {
+            return redirect()->route('premiertax.sales.index')
+                ->with('error', 'This invoice cannot be edited because the 72-hour FBR correction window has expired (' . round($hoursPassed, 1) . ' hours passed).');
+        }
+
+        // Load reference data from FBR API / cache
+        $provinces = [];
+        $hsCodes = [];
+        $uoMs = [];
+        $transactionTypes = [];
+
+        try {
+            $fbrService = $this->getFbrApiService();
+
+            $provincesResult = $fbrService->getProvinceCodes($user->fbr_access_token);
+            if ($provincesResult['success']) {
+                $provinces = $provincesResult['data'] ?? [];
+            }
+
+            $hsCodesResult = $fbrService->getItemDescriptionCodes($user->fbr_access_token);
+            if ($hsCodesResult['success']) {
+                $hsCodes = $hsCodesResult['data'] ?? [];
+            }
+
+            $uoMsResult = $fbrService->getUnitsOfMeasurement($user->fbr_access_token);
+            if ($uoMsResult['success']) {
+                $uoMs = $uoMsResult['data'] ?? [];
+            }
+
+            $transactionTypesResult = $fbrService->getTransactionTypeCodes($user->fbr_access_token);
+            if ($transactionTypesResult['success']) {
+                $transactionTypes = $transactionTypesResult['data'] ?? [];
+            }
+        } catch (\Exception $e) {
+            Log::error('Error loading FBR reference data for edit', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        $existingProducts = [];
+        try {
+            $registeredProducts = \App\Models\ProductMaster::where('c_id', $user->c_id)->pluck('prod_name')->filter()->toArray();
+            $previousInvoices = \App\Models\SaleInvoiceFbr::where('cid', $user->c_id)->pluck('items');
+            $savedDescriptions = [];
+            foreach ($previousInvoices as $itemsJson) {
+                $itemsArr = is_string($itemsJson) ? json_decode($itemsJson, true) : ($itemsJson ?? []);
+                if (is_array($itemsArr)) {
+                    foreach ($itemsArr as $item) {
+                        if (!empty($item['productDescription'])) {
+                            $savedDescriptions[] = trim($item['productDescription']);
+                        }
+                    }
+                }
+            }
+            $existingProducts = array_values(array_unique(array_filter(array_merge($registeredProducts, $savedDescriptions))));
+        } catch (\Exception $e) {
+            Log::error('Error fetching existing products', ['error' => $e->getMessage()]);
+        }
+
+        $items = $invoice->items;
+        if (is_string($items)) {
+            $items = json_decode($items, true) ?: [];
+        }
+
+        $hoursRemaining = max(0, 72 - $hoursPassed);
+
+        return view('SaleInvoice.edit', compact('invoice', 'items', 'provinces', 'hsCodes', 'uoMs', 'transactionTypes', 'user', 'existingProducts', 'hoursRemaining'));
+    }
+
+    /**
+     * Resubmit an edited FBR Sale Invoice within 72 hours (Method 2: Auto Credit Note + New Invoice)
+     */
+    public function resubmitSaleInvoice(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        if (!$user->fbr_access_token) {
+            return response()->json([
+                'success' => false,
+                'message' => 'FBR Access Token is required. Please update your profile.'
+            ], 400);
+        }
+
+        // Find invoice for this company
+        $invoice = SaleInvoiceFbr::where('cid', $user->c_id)->findOrFail($id);
+
+        // Check 72-hour window
+        $createdAt = $invoice->created_at ? \Carbon\Carbon::parse($invoice->created_at) : \Carbon\Carbon::parse($invoice->invoice_date);
+        $hoursPassed = $createdAt->diffInHours(now());
+        if ($hoursPassed > 72) {
+            return response()->json([
+                'success' => false,
+                'message' => '72 hours have passed since this invoice was issued. Under FBR rules, this invoice is locked and cannot be edited.'
+            ], 422);
+        }
+
+        try {
+            $originalFbrNo = $invoice->fbr_invoice_no;
+
+            // =========================================================================
+            // STEP 1: AUTOMATIC CREDIT NOTE SUBMISSION TO FBR (Reverse Old Invoice)
+            // =========================================================================
+            $originalItems = $invoice->items;
+            if (is_string($originalItems)) {
+                $originalItems = json_decode($originalItems, true) ?: [];
+            }
+
+            // Build Credit Note items from original invoice
+            $cnItems = [];
+            foreach ($originalItems as $it) {
+                $cnItem = (array) $it;
+                $cnItem['quantity'] = isset($cnItem['quantity']) ? (float)$cnItem['quantity'] : 0;
+                $cnItem['rateValues'] = isset($cnItem['rateValues']) ? (float)$cnItem['rateValues'] : 0;
+                $cnItem['valueSalesExcludingST'] = isset($cnItem['valueSalesExcludingST']) ? (float)$cnItem['valueSalesExcludingST'] : 0;
+                $cnItem['salesTaxApplicable'] = isset($cnItem['salesTaxApplicable']) ? (float)$cnItem['salesTaxApplicable'] : 0;
+                $cnItem['furtherTax'] = isset($cnItem['furtherTax']) ? (float)$cnItem['furtherTax'] : 0;
+                $cnItem['totalValues'] = isset($cnItem['totalValues']) ? (float)$cnItem['totalValues'] : 0;
+                $cnItem['extraTax'] = $cnItem['extraTax'] ?? '';
+                $cnItem['sroScheduleNo'] = $cnItem['sroScheduleNo'] ?? '';
+                $cnItem['sroItemSerialNo'] = $cnItem['sroItemSerialNo'] ?? '';
+                $cnItem['fixedNotifiedValueOrRetailPrice'] = $cnItem['fixedNotifiedValueOrRetailPrice'] ?? 0;
+                $cnItem['salesTaxWithheldAtSource'] = $cnItem['salesTaxWithheldAtSource'] ?? 0;
+                $cnItem['fedPayable'] = $cnItem['fedPayable'] ?? 0;
+                $cnItem['discount'] = $cnItem['discount'] ?? 0;
+
+                unset($cnItem['rateValues']);
+                if (isset($cnItem['rate'])) {
+                    $rateParsed = json_decode($cnItem['rate'], true);
+                    if (json_last_error() === JSON_ERROR_NONE && isset($rateParsed['rate_desc'])) {
+                        $cnItem['rate'] = $rateParsed['rate_desc'];
+                    }
+                }
+                $cnItems[] = $cnItem;
+            }
+
+            $creditNotePayload = [
+                'sellerNTNCNIC' => $invoice->seller_ntn_cnic,
+                'sellerBusinessName' => $invoice->seller_business_name,
+                'sellerProvince' => $invoice->seller_province,
+                'sellerAddress' => $this->cleanAddress($invoice->seller_address ?? ''),
+                'buyerNTNCNIC' => $invoice->buyer_ntn_cnic,
+                'buyerBusinessName' => $invoice->buyer_business_name,
+                'buyerProvince' => $invoice->buyer_province,
+                'buyerRegistrationType' => $invoice->buyer_registration_type,
+                'buyerAddress' => $this->cleanAddress($invoice->buyer_address ?? ''),
+                'invoiceType' => 'Credit Note', // FBR Document Type for reversal
+                'invoiceDate' => now()->format('Y-m-d'),
+                'invoiceRefNo' => $originalFbrNo, // References the original invoice being credited/reversed
+                'items' => $cnItems
+            ];
+
+            // Handle unregistered supplier logic
+            $creditNotePayload = $this->handleUnregisteredSupplier($creditNotePayload);
+
+            if (!$user->use_sandbox && isset($creditNotePayload['scenarioId'])) {
+                unset($creditNotePayload['scenarioId']);
+            }
+
+            Log::info('=== STEP 1: FBR CREDIT NOTE SUBMISSION ===', [
+                'user_id' => $user->id,
+                'original_fbr_no' => $originalFbrNo,
+                'payload' => $creditNotePayload
+            ]);
+
+            $cnResult = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $creditNotePayload);
+
+            Log::info('=== STEP 1: FBR CREDIT NOTE RESPONSE ===', [
+                'user_id' => $user->id,
+                'original_fbr_no' => $originalFbrNo,
+                'response' => $cnResult
+            ]);
+
+            // Validate Credit Note result
+            $creditNoteNo = null;
+            if ($cnResult['success'] ?? false) {
+                $cnValidation = $cnResult['data']['validationResponse'] ?? null;
+                if ($cnValidation && ($cnValidation['status'] ?? '') !== 'Valid') {
+                    $errorDetails = '';
+                    foreach ($cnValidation['invoiceStatuses'] ?? [] as $i => $st) {
+                        if (($st['status'] ?? '') !== 'Valid') {
+                            $errorDetails .= "Item " . ($i + 1) . ": " . ($st['error'] ?? '') . ". ";
+                        }
+                    }
+                    $errMsg = $errorDetails ?: ($cnValidation['error'] ?? 'Credit Note validation failed');
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'FBR Credit Note (Reversal) validation failed: ' . $errMsg
+                    ], 400);
+                }
+                $creditNoteNo = $cnResult['data']['invoiceNumber'] ?? ('CN-' . $originalFbrNo);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'FBR Credit Note creation failed: ' . ($cnResult['message'] ?? 'Could not reverse original invoice on FBR.'),
+                    'errors' => $cnResult['errors'] ?? null
+                ], $cnResult['status_code'] ?? 400);
+            }
+
+            // =========================================================================
+            // STEP 2: SUBMIT NEW CORRECTED INVOICE TO FBR
+            // =========================================================================
+            $invoiceData = $request->all();
+            unset($invoiceData['_token'], $invoiceData['furtherexpense'], $invoiceData['title'], $invoiceData['notes'], $invoiceData['status'], $invoiceData['cid'], $invoiceData['user_id']);
+
+            if (!empty($invoiceData['sellerAddress'])) {
+                $invoiceData['sellerAddress'] = $this->cleanAddress($invoiceData['sellerAddress']);
+            }
+            if (!empty($invoiceData['buyerAddress'])) {
+                $invoiceData['buyerAddress'] = $this->cleanAddress($invoiceData['buyerAddress']);
+            }
+
+            // Ensure invoiceType is Sale Invoice (or user selection) and references original
+            $invoiceData['invoiceType'] = $request->input('invoiceType') ?? 'Sale Invoice';
+            $invoiceData['invoiceRefNo'] = $originalFbrNo;
+            $invoiceData['items'] = $invoiceData['items'] ?? [];
+
+            foreach ($invoiceData['items'] as &$item) {
+                if (isset($item['furtherTax'])) $item['furtherTax'] = (float)$item['furtherTax'];
+                if (isset($item['productDescription'])) $item['productDescription'] = $this->cleanAddress($item['productDescription']);
+                if (isset($item['valueSalesExcludingST'])) $item['valueSalesExcludingST'] = (float)$item['valueSalesExcludingST'];
+                if (isset($item['rateValues'])) $item['rateValues'] = (float)$item['rateValues'];
+                if (isset($item['totalValues'])) $item['totalValues'] = (float)$item['totalValues'];
+                if (isset($item['salesTaxApplicable'])) $item['salesTaxApplicable'] = (float)$item['salesTaxApplicable'];
+                if (isset($item['quantity'])) $item['quantity'] = (float)$item['quantity'];
+
+                foreach (['extraTax', 'sroScheduleNo', 'sroItemSerialNo'] as $field) {
+                    $item[$field] = $item[$field] ?? '';
+                }
+                foreach (['fixedNotifiedValueOrRetailPrice', 'salesTaxWithheldAtSource', 'furtherTax', 'fedPayable', 'discount'] as $field) {
+                    $item[$field] = $item[$field] ?? 0;
+                }
+            }
+
+            $invoiceData = $this->handleUnregisteredSupplier($invoiceData);
+
+            if (!$user->use_sandbox && isset($invoiceData['scenarioId'])) {
+                unset($invoiceData['scenarioId']);
+            }
+
+            // Store/update buyer info if registered
+            if (!empty($invoiceData['buyerNTNCNIC']) && ($invoiceData['buyerRegistrationType'] ?? '') !== 'Unregistered') {
+                try {
+                    Buyer::updateOrCreate(
+                        ['ntn_cnic' => $invoiceData['buyerNTNCNIC']],
+                        [
+                            'cid' => $user->c_id,
+                            'user_id' => $user->id,
+                            'business_name' => $invoiceData['buyerBusinessName'] ?? '',
+                            'address' => $invoiceData['buyerAddress'] ?? '',
+                            'registration_type' => $invoiceData['buyerRegistrationType'] ?? '',
+                            'province' => $invoiceData['buyerProvince'] ?? ''
+                        ]
+                    );
+                } catch (\Exception $e) {
+                    Log::warning('Failed to store buyer information during resubmit: ' . $e->getMessage());
+                }
+            }
+
+            // Deep copy items for FBR API
+            $fbrItems = json_decode(json_encode($invoiceData['items']), true);
+            foreach ($fbrItems as &$item) {
+                unset($item['rateValues']);
+                if (isset($item['rate'])) {
+                    $rateParsed = json_decode($item['rate'], true);
+                    if (json_last_error() === JSON_ERROR_NONE && isset($rateParsed['rate_desc'])) {
+                        $item['rate'] = $rateParsed['rate_desc'];
+                    }
+                }
+                if (isset($item['saleType'])) {
+                    $st = trim($item['saleType']);
+                    $isNumeric = is_numeric($st) || ctype_digit((string)$st);
+                    $isThirdSchedule = strcasecmp($st, 'Third Schedule Goods') === 0 || strcasecmp($st, '3rd Schedule Goods') === 0;
+                    if ($isNumeric || $isThirdSchedule) {
+                        try {
+                            $fbrService = $this->getFbrApiService();
+                            $ttRes = $fbrService->getTransactionTypeCodes($user->fbr_access_token);
+                            if ($ttRes['success'] && !empty($ttRes['data'])) {
+                                foreach ($ttRes['data'] as $tType) {
+                                    $idVal = (string)($tType['transactioN_TYPE_ID'] ?? '');
+                                    $desc = $tType['transactioN_DESC'] ?? '';
+                                    if ($isNumeric && $idVal === (string)$st) {
+                                        $item['saleType'] = $desc;
+                                        break;
+                                    } elseif ($isThirdSchedule && (stripos($desc, '3rd schedule') !== false || stripos($desc, 'third schedule') !== false || $idVal === '23')) {
+                                        $item['saleType'] = $desc;
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            Log::warning('Failed to map saleType in resubmit: ' . $e->getMessage());
+                        }
+                    }
+                }
+            }
+
+            $apiPayload = $invoiceData;
+            $apiPayload['items'] = $fbrItems;
+
+            Log::info('=== STEP 2: FBR NEW INVOICE SUBMISSION ===', [
+                'user_id' => $user->id,
+                'payload' => $apiPayload
+            ]);
+
+            $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $apiPayload);
+
+            if ($result['success'] ?? false) {
+                $valResp = $result['data']['validationResponse'] ?? null;
+                if ($valResp && ($valResp['status'] ?? '') !== 'Valid') {
+                    $errorDetails = '';
+                    foreach ($valResp['invoiceStatuses'] ?? [] as $i => $st) {
+                        if (($st['status'] ?? '') !== 'Valid') {
+                            $errorDetails .= "Item " . ($i + 1) . ": " . ($st['error'] ?? '') . ". ";
+                        }
+                    }
+                    $errMsg = $errorDetails ?: ($valResp['error'] ?? 'Validation failed');
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Credit Note was created (' . $creditNoteNo . '), but new invoice validation failed: ' . $errMsg
+                    ], 400);
+                }
+
+                $newFbrNo = $result['data']['invoiceNumber'] ?? $originalFbrNo;
+
+                // =========================================================================
+                // STEP 3: UPDATE LOCAL DATABASE
+                // =========================================================================
+                $invoice->update([
+                    'seller_ntn_cnic' => $request->input('sellerNTNCNIC'),
+                    'seller_business_name' => $request->input('sellerBusinessName'),
+                    'seller_province' => $request->input('sellerProvince'),
+                    'seller_address' => $request->input('sellerAddress'),
+                    'invoice_type' => $request->input('invoiceType') ?? 'Sale Invoice',
+                    'invoice_date' => $request->input('invoiceDate'),
+                    'invoice_ref_no' => $originalFbrNo,
+                    'buyer_ntn_cnic' => $request->input('buyerNTNCNIC'),
+                    'buyer_business_name' => $request->input('buyerBusinessName'),
+                    'buyer_province' => $request->input('buyerProvince'),
+                    'buyer_registration_type' => $request->input('buyerRegistrationType'),
+                    'buyer_address' => $request->input('buyerAddress'),
+                    'items' => json_encode($request->input('items', [])),
+                    'fbr_invoice_no' => $newFbrNo,
+                    'expense_col' => $request->input('furtherexpense'),
+                    'notes' => 'Original FBR #' . $originalFbrNo . ' reversed via Credit Note #' . $creditNoteNo . '. New FBR #' . $newFbrNo . ' issued on ' . now()->format('Y-m-d H:i:s')
+                ]);
+
+                Log::info('Invoice updated locally with Credit Note and New Invoice', [
+                    'user_id' => $user->id,
+                    'invoice_id' => $invoice->id,
+                    'credit_note_no' => $creditNoteNo,
+                    'new_fbr_no' => $newFbrNo
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "Success! Original Invoice was reversed via FBR Credit Note ({$creditNoteNo}) and New Corrected FBR Invoice ({$newFbrNo}) was issued successfully!",
+                    'data' => [
+                        'credit_note_no' => $creditNoteNo,
+                        'new_invoice_no' => $newFbrNo,
+                        'fbr_response' => $result
+                    ],
+                    'redirect_url' => route('premiertax.sales.index')
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Credit Note was created (' . $creditNoteNo . '), but new invoice submission to FBR failed: ' . ($result['message'] ?? 'Unknown error'),
+                    'errors' => $result['errors'] ?? null
+                ], $result['status_code'] ?? 400);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Invoice resubmission exception', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while resubmitting the invoice: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
