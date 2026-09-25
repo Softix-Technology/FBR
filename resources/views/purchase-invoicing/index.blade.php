@@ -2450,7 +2450,7 @@
             if (result.success) {
                 showMessage(result.message || 'Purchase Invoice saved successfully!', 'success');
                 setTimeout(() => {
-                    window.location.href = "{{ route('reports.purchase') }}";
+                    window.location.href = "{{ route('purchase.invoicing.index') }}";
                 }, 1200);
             } else {
                 // Show detailed errors if available
