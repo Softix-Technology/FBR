@@ -169,13 +169,25 @@
 <div id="supplierRegisterSection" style="display: none;" data-title="Supply Register">
     <style>
         @page {
-            size: A4 portrait;
-            margin: 8mm;
+            size: A4 landscape;
+            margin: 0;
         }
         @media print {
+            @page {
+                margin: 0;
+            }
+            body {
+                margin: 8mm;
+            }
             .no-print {
                 display: none !important;
             }
+            tfoot {
+                display: table-row-group;
+            }
+        }
+        tfoot {
+            display: table-row-group;
         }
         .register-report .header-flex {
             display: flex;
@@ -361,12 +373,24 @@
     <style>
         @page {
             size: A4 landscape;
-            margin: 8mm;
+            margin: 0;
         }
         @media print {
+            @page {
+                margin: 0;
+            }
+            body {
+                margin: 8mm;
+            }
             .no-print {
                 display: none !important;
             }
+            tfoot {
+                display: table-row-group;
+            }
+        }
+        tfoot {
+            display: table-row-group;
         }
         .register-report .header-flex {
             display: flex;
@@ -711,12 +735,14 @@
         var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + title + '</title>'
             + styleHTML
             + '</head><body>' + reportHTML + scriptHTML + '</body></html>';
-        var url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-        var newTab = window.open(url, '_blank');
+        var newTab = window.open('', '_blank');
         if (!newTab) {
             alert('Please allow popups for this site to open the report.');
             return;
         }
+        newTab.document.open();
+        newTab.document.write(html);
+        newTab.document.close();
         setTimeout(function() {
             newTab.focus();
             newTab.print();
