@@ -176,15 +176,14 @@
                                 </div>
                                 <div class="flex flex-col items-end">
                                     <div class="flex items-center space-x-2">
-                                         @if((string)($user->c_id ?? '') === '11')
-                                             <button type="button" id="uploadExcelBtn" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-xs uppercase tracking-widest transition shadow-sm hover:opacity-90" style="background-color: #059669 !important; color: #ffffff !important;">
-                                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke: #ffffff !important;">
-                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                                                 </svg>
-                                                 <span style="color: #ffffff !important; font-weight: 600;">Upload Excel</span>
-                                             </button>
-                                             <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden">
-                                         @endif
+                                         <button type="button" id="uploadExcelBtn" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-xs uppercase tracking-widest transition shadow-sm hover:opacity-90" style="background-color: #059669 !important; color: #ffffff !important;" title="Upload Excel - Supports 3rd Schedule Invoices Only">
+                                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke: #ffffff !important;">
+                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                                             </svg>
+                                             <span style="color: #ffffff !important; font-weight: 600;">Upload Excel</span>
+                                             <span class="ml-2 px-1.5 py-0.5 text-[10px] bg-emerald-800 text-emerald-100 rounded normal-case font-medium tracking-normal">3rd Schedule</span>
+                                         </button>
+                                         <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden">
                                         <button type="button" id="addItemBtn" disabled class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-500 focus:outline-none focus:border-blue-700 focus:ring focus:ring-blue-200 active:bg-blue-600 disabled:opacity-25 transition opacity-50 cursor-not-allowed" title="Please select buyer province and registration type first">
                                                 <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
@@ -213,12 +212,15 @@
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate (%)</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value Sales Excluding ST</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales Tax</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount Amount</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">G/H Amount</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Further Tax</th>
                                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="itemsTableBody" class="bg-white divide-y divide-gray-200">
                                         <tr id="noItemsRow">
-                                            <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                            <td colspan="11" class="px-4 py-8 text-center text-gray-500">
                                                 <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-6a2 2 0 00-2 2v3a2 2 0 002 2h6a2 2 0 002-2v-3a2 2 0 00-2-2z" />
                                                 </svg>
@@ -235,6 +237,9 @@
                                             <td class="px-4 py-3 text-sm text-center">-</td>
                                             <td class="px-4 py-3 text-sm font-bold" id="totalValueSales">0.00</td>
                                             <td class="px-4 py-3 text-sm font-bold" id="totalSalesTax">0.00</td>
+                                            <td class="px-4 py-3 text-sm text-center">-</td>
+                                            <td class="px-4 py-3 text-sm text-center">-</td>
+                                            <td class="px-4 py-3 text-sm text-center">-</td>
                                             <td class="px-4 py-3 text-sm text-center">-</td>
                                         </tr>
                                     </tfoot>
@@ -290,8 +295,7 @@
                           </div>
                     </form>
 
-                    <!-- Uploaded Excel Invoices Section (Restricted to CID 11 ONLY) -->
-                    @if((string)($user->c_id ?? '') === '11')
+                    <!-- Uploaded Excel Invoices Section -->
                     <div id="uploadedExcelContainer" class="mt-8 bg-white border border-gray-200 rounded-lg shadow-sm p-6 hidden">
                         <div class="flex items-center justify-between mb-4">
                             <div class="flex items-center">
@@ -407,7 +411,6 @@
                             </div>
                         </div>
                     </div>
-                    @endif
                 </div>
             </div>
         </div>
@@ -3302,6 +3305,9 @@ const result = JSON.parse(cleanText);
                     <td class="px-4 py-3 text-sm text-gray-900">${item.rateValue || 0}%</td>
                     <td class="px-4 py-3 text-sm text-gray-900">${parseFloat(item.valueSalesExcludingST || 0).toFixed(2)}</td>
                     <td class="px-4 py-3 text-sm text-gray-900">${parseFloat(item.salesTaxApplicable || 0).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">${parseFloat(item.discountAmount || item.discount || 0).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">${parseFloat(item.ghAmount || 0).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">${parseFloat(item.furtherTax || 0).toFixed(2)}</td>
                     <td class="px-4 py-3 text-sm text-gray-900">
                         <div class="flex space-x-2">
                             <button type="button" onclick="editItem(${index})" class="text-blue-600 hover:text-blue-900 text-sm font-medium">Edit</button>
