@@ -209,13 +209,15 @@ foreach ($invoiceData['items'] as &$item) {
             }
         }
 
-        // Store buyer information if not unregistered
-        if (!empty($invoiceData['buyerNTNCNIC']) && ($invoiceData['buyerRegistrationType'] ?? '') !== 'Unregistered') {
+        // Store buyer information (both Registered and Unregistered)
+        if (!empty($invoiceData['buyerNTNCNIC'])) {
             try {
                 Buyer::updateOrCreate(
-                    ['ntn_cnic' => $invoiceData['buyerNTNCNIC']],
                     [
-                        'cid' => $user->c_id,
+                        'ntn_cnic' => $invoiceData['buyerNTNCNIC'],
+                        'cid' => $user->c_id
+                    ],
+                    [
                         'user_id' => $user->id,
                         'business_name' => $invoiceData['buyerBusinessName'] ?? '',
                         'address' => $invoiceData['buyerAddress'] ?? '',
@@ -1472,7 +1474,7 @@ $query = \App\Models\Buyer::query();
         $user = Auth::user();
 
         try {
-            $buyer = $user->buyers()->findOrFail($id);
+            $buyer = Buyer::where('cid', $user->c_id)->findOrFail($id);
 
             return response()->json([
                 'success' => true,
@@ -1490,6 +1492,73 @@ $query = \App\Models\Buyer::query();
                 'success' => false,
                 'message' => 'Buyer not found'
             ], 404);
+        }
+    }
+
+    /**
+     * Update buyer details
+     */
+    public function updateBuyer(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'ntn_cnic' => 'required|string|max:50',
+            'business_name' => 'required|string|max:255',
+            'province' => 'nullable|string|max:100',
+            'registration_type' => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $buyer = Buyer::where('cid', $user->c_id)->findOrFail($id);
+            $buyer->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Buyer updated successfully',
+                'data' => $buyer
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating buyer', [
+                'user_id' => $user->id,
+                'buyer_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update buyer: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete buyer
+     */
+    public function deleteBuyer(Request $request, $id)
+    {
+        $user = Auth::user();
+
+        try {
+            $buyer = Buyer::where('cid', $user->c_id)->findOrFail($id);
+            $buyer->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Buyer deleted successfully'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error deleting buyer', [
+                'user_id' => $user->id,
+                'buyer_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete buyer: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -1751,13 +1820,15 @@ $query = \App\Models\Buyer::query();
                 unset($invoiceData['scenarioId']);
             }
 
-            // Store/update buyer info if registered
-            if (!empty($invoiceData['buyerNTNCNIC']) && ($invoiceData['buyerRegistrationType'] ?? '') !== 'Unregistered') {
+            // Store/update buyer info (both Registered and Unregistered)
+            if (!empty($invoiceData['buyerNTNCNIC'])) {
                 try {
                     Buyer::updateOrCreate(
-                        ['ntn_cnic' => $invoiceData['buyerNTNCNIC']],
                         [
-                            'cid' => $user->c_id,
+                            'ntn_cnic' => $invoiceData['buyerNTNCNIC'],
+                            'cid' => $user->c_id
+                        ],
+                        [
                             'user_id' => $user->id,
                             'business_name' => $invoiceData['buyerBusinessName'] ?? '',
                             'address' => $invoiceData['buyerAddress'] ?? '',

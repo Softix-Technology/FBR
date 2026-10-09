@@ -39,4 +39,6 @@ Route::middleware('web')->group(function () {
     Route::get('/api/buyers', [InvoicingController::class, 'getBuyers'])->name('api.buyers.index');
     Route::get('/api/buyers/search', [InvoicingController::class, 'searchBuyersByNtn'])->name('api.buyers.search');
     Route::get('/api/buyers/{id}', [InvoicingController::class, 'getBuyerById'])->name('api.buyers.show');
+    Route::put('/api/buyers/{id}', [InvoicingController::class, 'updateBuyer'])->name('api.buyers.update');
+    Route::delete('/api/buyers/{id}', [InvoicingController::class, 'deleteBuyer'])->name('api.buyers.delete');
 });

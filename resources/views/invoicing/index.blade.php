@@ -411,6 +411,60 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Edit Buyer Modal (Compact, Centered Window) -->
+                    <div id="editBuyerModal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(15, 23, 42, 0.6); z-index: 999999; display: none; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;">
+                        <div style="background: #ffffff; width: 100%; max-width: 440px; border-radius: 10px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2); overflow: hidden; animation: fadeIn 0.15s ease-out;">
+                            <!-- Header -->
+                            <div style="background: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                                <h3 style="font-size: 15px; font-weight: 700; color: #0f172a; margin: 0;">Edit Buyer Information</h3>
+                                <button type="button" onclick="closeEditBuyerModal()" style="border: none; background: transparent; font-size: 22px; color: #64748b; cursor: pointer; line-height: 1; padding: 0 4px;" title="Close">&times;</button>
+                            </div>
+
+                            <!-- Body -->
+                            <div style="padding: 16px 18px;">
+                                <input type="hidden" id="editBuyerId">
+                                
+                                <div style="margin-bottom: 12px;">
+                                    <label style="display: block; font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">NTN / CNIC <span style="color: #ef4444;">*</span></label>
+                                    <input type="text" id="editBuyerNTN" placeholder="Enter NTN or CNIC" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; box-sizing: border-box;">
+                                </div>
+
+                                <div style="margin-bottom: 12px;">
+                                    <label style="display: block; font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">Business Name <span style="color: #ef4444;">*</span></label>
+                                    <input type="text" id="editBuyerBusinessName" placeholder="Enter Business Name" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; box-sizing: border-box;">
+                                </div>
+
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                                    <div>
+                                        <label style="display: block; font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">Province</label>
+                                        <select id="editBuyerProvince" style="width: 100%; padding: 8px 10px; font-size: 13px; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; box-sizing: border-box;">
+                                            <option value="">Select Province</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">Registration Type</label>
+                                        <select id="editBuyerRegistrationType" style="width: 100%; padding: 8px 10px; font-size: 13px; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; box-sizing: border-box;">
+                                            <option value="Registered">Registered</option>
+                                            <option value="Unregistered">Unregistered</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style="margin-bottom: 8px;">
+                                    <label style="display: block; font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 4px;">Address</label>
+                                    <textarea id="editBuyerAddress" rows="2" placeholder="Enter Address" style="width: 100%; padding: 8px 12px; font-size: 13px; color: #0f172a; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; resize: vertical; box-sizing: border-box;"></textarea>
+                                </div>
+
+                                <div id="editBuyerError" style="display: none; font-size: 12px; color: #dc2626; margin-top: 6px; padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px;"></div>
+                            </div>
+
+                            <!-- Footer -->
+                            <div style="background: #f8fafc; padding: 10px 18px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px;">
+                                <button type="button" onclick="closeEditBuyerModal()" style="padding: 7px 14px; font-size: 12px; font-weight: 600; color: #475569; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;">Cancel</button>
+                                <button type="button" onclick="saveEditedBuyer()" id="saveBuyerBtn" style="padding: 7px 16px; font-size: 12px; font-weight: 600; color: #ffffff; background: #2563eb; border: none; border-radius: 6px; cursor: pointer;">Save Changes</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1445,7 +1499,7 @@ const result = JSON.parse(cleanText);
             }
         }
 
-        // Display buyer suggestions in dropdown
+        // Display buyer suggestions in dropdown with Edit & Delete actions
         function displayBuyerSuggestions(buyers, headerText = null) {
             const autocompleteDiv = document.getElementById('buyerNTNAutocomplete');
 
@@ -1461,23 +1515,52 @@ const result = JSON.parse(cleanText);
             }
 
             buyers.forEach(buyer => {
+                const escapedNTN = escapeHtmlStr(buyer.ntn_cnic || '');
+                const escapedName = escapeHtmlStr(buyer.business_name || '');
+                const escapedAddress = escapeHtmlStr(buyer.address || '');
+                const escapedReg = escapeHtmlStr(buyer.registration_type || '');
+                const escapedProvince = escapeHtmlStr(buyer.province || '');
+
                 html += `
-                    <div class="buyer-suggestion px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                    <div class="buyer-suggestion flex items-center justify-between px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition"
                          data-buyer-id="${buyer.id}"
-                         data-ntn-cnic="${buyer.ntn_cnic}"
-                         data-business-name="${buyer.business_name}"
-                         data-address="${buyer.address}"
-                         data-registration-type="${buyer.registration_type}"
-                         data-province="${buyer.province}">
-                        <div class="flex justify-between items-start">
-                            <div class="flex-1">
-                                <div class="font-medium text-sm text-gray-900">${buyer.ntn_cnic}</div>
-                                <div class="text-sm text-gray-600">${buyer.business_name}</div>
-                                <div class="text-xs text-gray-500">${buyer.registration_type}</div>
+                         data-ntn-cnic="${escapedNTN}"
+                         data-business-name="${escapedName}"
+                         data-address="${escapedAddress}"
+                         data-registration-type="${escapedReg}"
+                         data-province="${escapedProvince}">
+                        <div class="flex-1 pr-2 min-w-0 cursor-pointer buyer-select-area">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="font-medium text-sm text-gray-900">${escapedNTN}</div>
+                                    <div class="text-sm text-gray-600 truncate">${escapedName}</div>
+                                    <div class="text-xs text-gray-500">${escapedReg}</div>
+                                </div>
+                                <div class="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                                    ${getProvinceDescription(buyer.province)}
+                                </div>
                             </div>
-                            <div class="text-xs text-gray-500 ml-2">
-                                ${getProvinceDescription(buyer.province)}
-                            </div>
+                        </div>
+                        <div class="flex items-center space-x-1 flex-shrink-0 ml-2">
+                            <button type="button" 
+                                    class="btn-edit-buyer p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition" 
+                                    title="Edit Buyer"
+                                    onmousedown="event.preventDefault();"
+                                    data-buyer='${JSON.stringify(buyer).replace(/'/g, "&apos;")}'>
+                                <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                            </button>
+                            <button type="button" 
+                                    class="btn-delete-buyer p-1.5 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition" 
+                                    title="Delete Buyer"
+                                    onmousedown="event.preventDefault();"
+                                    data-buyer-id="${buyer.id}"
+                                    data-business-name="${escapedName}">
+                                <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 `;
@@ -1486,12 +1569,201 @@ const result = JSON.parse(cleanText);
             autocompleteDiv.innerHTML = html;
             autocompleteDiv.classList.remove('hidden');
 
-            // Add click listeners to suggestions
-            autocompleteDiv.querySelectorAll('.buyer-suggestion').forEach(suggestion => {
-                suggestion.addEventListener('click', function() {
-                    selectBuyer(this);
+            // Add click listeners to select area
+            autocompleteDiv.querySelectorAll('.buyer-select-area').forEach(area => {
+                area.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    selectBuyer(this.closest('.buyer-suggestion'));
                 });
             });
+
+            // Add click listeners for edit
+            autocompleteDiv.querySelectorAll('.btn-edit-buyer').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    try {
+                        const buyerData = JSON.parse(this.getAttribute('data-buyer'));
+                        openEditBuyerModal(buyerData);
+                    } catch (err) {
+                        console.error('Error parsing buyer data:', err);
+                    }
+                });
+            });
+
+            // Add click listeners for delete
+            autocompleteDiv.querySelectorAll('.btn-delete-buyer').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const buyerId = this.getAttribute('data-buyer-id');
+                    const buyerName = this.getAttribute('data-business-name');
+                    deleteBuyerRecord(buyerId, buyerName);
+                });
+            });
+        }
+
+        // Open Edit Buyer Modal
+        function openEditBuyerModal(buyer) {
+            hideBuyerAutocomplete();
+            document.getElementById('editBuyerId').value = buyer.id;
+            document.getElementById('editBuyerNTN').value = buyer.ntn_cnic || '';
+            document.getElementById('editBuyerBusinessName').value = buyer.business_name || '';
+            document.getElementById('editBuyerRegistrationType').value = buyer.registration_type || 'Registered';
+            document.getElementById('editBuyerAddress').value = buyer.address || '';
+            
+            // Populate provinces
+            const provinceSelect = document.getElementById('editBuyerProvince');
+            if (provinceSelect) {
+                let opts = '<option value="">Select Province</option>';
+                if (typeof provinces !== 'undefined' && provinces && provinces.length > 0) {
+                    provinces.forEach(p => {
+                        const isSelected = (buyer.province === p.stateProvinceCode) ? 'selected' : '';
+                        opts += `<option value="${p.stateProvinceCode}" ${isSelected}>${p.stateProvinceDesc}</option>`;
+                    });
+                }
+                provinceSelect.innerHTML = opts;
+                if (buyer.province) {
+                    provinceSelect.value = buyer.province;
+                }
+            }
+
+            const errorDiv = document.getElementById('editBuyerError');
+            if (errorDiv) {
+                errorDiv.textContent = '';
+                errorDiv.style.display = 'none';
+            }
+
+            const modal = document.getElementById('editBuyerModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                modal.classList.remove('hidden');
+            }
+        }
+
+        // Close Edit Buyer Modal
+        function closeEditBuyerModal() {
+            const modal = document.getElementById('editBuyerModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Save Edited Buyer
+        async function saveEditedBuyer() {
+            const id = document.getElementById('editBuyerId').value;
+            const ntnCnic = document.getElementById('editBuyerNTN').value.trim();
+            const businessName = document.getElementById('editBuyerBusinessName').value.trim();
+            const province = document.getElementById('editBuyerProvince').value;
+            const registrationType = document.getElementById('editBuyerRegistrationType').value;
+            const address = document.getElementById('editBuyerAddress').value.trim();
+            const errorDiv = document.getElementById('editBuyerError');
+            const saveBtn = document.getElementById('saveBuyerBtn');
+
+            if (!ntnCnic || !businessName) {
+                if (errorDiv) {
+                    errorDiv.textContent = 'NTN/CNIC and Business Name are required.';
+                    errorDiv.style.display = 'block';
+                }
+                return;
+            }
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                const response = await fetch(`${API_BASE}/premiertax/api/buyers/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': CSRF_TOKEN
+                    },
+                    body: JSON.stringify({
+                        ntn_cnic: ntnCnic,
+                        business_name: businessName,
+                        province: province,
+                        registration_type: registrationType,
+                        address: address
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Clear cache
+                    buyerAutocompleteCache.clear();
+                    closeEditBuyerModal();
+
+                    // If form currently holds this buyer, update fields
+                    const currentNTN = document.getElementById('buyerNTNCNIC').value.trim();
+                    if (currentNTN === ntnCnic) {
+                        document.getElementById('buyerBusinessName').value = businessName;
+                        document.getElementById('buyerAddress').value = address;
+                        $('#buyerRegistrationType').val(registrationType).trigger('change');
+                        $('#buyerProvince').val(province).trigger('change');
+                        handleRegistrationTypeChange();
+                        validateBuyerRequirements();
+                    }
+
+                    // Refresh recent buyers if NTN field is focused or empty
+                    const activeNTNVal = document.getElementById('buyerNTNCNIC').value.trim();
+                    if (activeNTNVal.length >= 2) {
+                        searchBuyers(activeNTNVal);
+                    } else {
+                        showAllRecentBuyers();
+                    }
+                } else {
+                    if (errorDiv) {
+                        errorDiv.textContent = result.message || 'Failed to update buyer.';
+                        errorDiv.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                console.error('Error updating buyer:', err);
+                if (errorDiv) {
+                    errorDiv.textContent = 'An error occurred while updating buyer.';
+                    errorDiv.style.display = 'block';
+                }
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Changes';
+            }
+        }
+
+        // Delete Buyer Record
+        async function deleteBuyerRecord(buyerId, buyerName) {
+            if (!confirm(`Are you sure you want to delete buyer "${buyerName || buyerId}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/premiertax/api/buyers/${buyerId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': CSRF_TOKEN
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    buyerAutocompleteCache.clear();
+
+                    // Refresh suggestion list
+                    const activeNTNVal = document.getElementById('buyerNTNCNIC').value.trim();
+                    if (activeNTNVal.length >= 2) {
+                        searchBuyers(activeNTNVal);
+                    } else {
+                        showAllRecentBuyers();
+                    }
+                } else {
+                    alert(result.message || 'Failed to delete buyer.');
+                }
+            } catch (err) {
+                console.error('Error deleting buyer:', err);
+                alert('An error occurred while deleting buyer.');
+            }
         }
 
         // Get province description from code
