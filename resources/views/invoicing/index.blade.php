@@ -320,6 +320,7 @@
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Inv Date</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Product Name</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">HS Code</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">UOM</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Price</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Qty</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Retail Val</th>
@@ -327,6 +328,8 @@
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Discount</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Ex Value</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Sales Tax</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">G/H (%)</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">G/H Amount</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Inclusive</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Status / Error</th>
                                         <th class="px-3 py-2 text-center font-medium text-gray-500 uppercase">Actions</th>
@@ -371,6 +374,10 @@
                                             <input type="text" id="editExcelHsCode" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                         </div>
                                         <div>
+                                            <label class="block text-xs font-medium text-gray-700">UOM</label>
+                                            <input type="text" id="editExcelUom" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm" placeholder="e.g. Numbers, pieces, units">
+                                        </div>
+                                        <div>
                                             <label class="block text-xs font-medium text-gray-700">Per Unit Sale Price</label>
                                             <input type="number" step="0.01" id="editExcelPrice" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                         </div>
@@ -397,6 +404,14 @@
                                         <div>
                                             <label class="block text-xs font-medium text-gray-700">Sales Tax</label>
                                             <input type="number" step="0.01" id="editExcelSalesTax" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">G/H (%)</label>
+                                            <input type="number" step="0.01" id="editExcelGhPct" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">G/H Amount</label>
+                                            <input type="number" step="0.01" id="editExcelGhAmount" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                         </div>
                                         <div class="col-span-2">
                                             <label class="block text-xs font-medium text-gray-700">Inclusive Value</label>
@@ -4359,12 +4374,96 @@ function formatExcelDate(val) {
     return str;
 }
 
+async function resolveUomForHsCode(hsCode, userProvidedUom) {
+    const cleanHs = String(hsCode || '').trim();
+    const cleanUserUom = String(userProvidedUom || '').trim();
+
+    const allUoms = (typeof uoMs !== 'undefined' && Array.isArray(uoMs))
+        ? uoMs 
+        : (window.appData?.uoMs || []);
+
+    // 1. If customer provided UOM in Excel, strictly validate it against known FBR UOMs
+    if (cleanUserUom) {
+        const match = allUoms.find(u => {
+            const desc = (u.uoM_DESC || u.description || '').toLowerCase().trim();
+            const id = String(u.uoM_ID || u.id || '').trim();
+            const target = cleanUserUom.toLowerCase();
+            return desc === target || id === target || desc.includes(target) || target.includes(desc);
+        });
+
+        if (match) {
+            return {
+                valid: true,
+                uomDesc: match.uoM_DESC || match.description
+            };
+        } else {
+            return {
+                valid: false,
+                error: `Wrong UOM "${cleanUserUom}" for HS Code ${cleanHs}`
+            };
+        }
+    }
+
+    // 2. Customer did not provide UOM -> Auto-fetch exact UOM from FBR API by HS Code
+    if (!cleanHs) {
+        return { valid: false, error: 'HS Code is missing' };
+    }
+
+    // Check uomCache first
+    if (typeof uomCache !== 'undefined' && uomCache.has(cleanHs)) {
+        const cached = uomCache.get(cleanHs);
+        if (cached && cached.data && cached.data.length > 0) {
+            const first = cached.data[0];
+            return {
+                valid: true,
+                uomDesc: first.uoM_DESC || first.description
+            };
+        } else {
+            return { valid: false, error: `No valid UOM found for HS Code ${cleanHs}` };
+        }
+    }
+
+    // Fetch from FBR API endpoint
+    try {
+        const response = await fetch(`${API_BASE}/premiertax/api/fbr/uom-by-hs-code`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            },
+            body: JSON.stringify({ hs_code: cleanHs })
+        });
+        const text = await response.text();
+        const cleanText = text.trim().startsWith('{') ? text : text.substring(text.indexOf('{'));
+        const result = JSON.parse(cleanText);
+
+        if (result.success && result.data && result.data.length > 0) {
+            if (typeof uomCache !== 'undefined') {
+                uomCache.set(cleanHs, { data: result.data, timestamp: Date.now() });
+            }
+            const first = result.data[0];
+            return {
+                valid: true,
+                uomDesc: first.uoM_DESC || first.description
+            };
+        } else {
+            if (typeof uomCache !== 'undefined') {
+                uomCache.set(cleanHs, { data: [], timestamp: Date.now() });
+            }
+            return { valid: false, error: `No valid UOM found for HS Code ${cleanHs}` };
+        }
+    } catch (err) {
+        return { valid: false, error: `Error fetching UOM for HS Code ${cleanHs}: ${err.message}` };
+    }
+}
+
 function handleExcelUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(evt) {
+    reader.onload = async function(evt) {
         try {
             const data = evt.target.result;
             const workbook = XLSX.read(data, { type: 'binary' });
@@ -4377,36 +4476,137 @@ function handleExcelUpload(e) {
                 return;
             }
 
+            // Map header columns dynamically if header names exist
+            const headerRow = Array.isArray(rawRows[0]) ? rawRows[0] : [];
+            const headerMap = {};
+            headerRow.forEach((h, idx) => {
+                if (h !== undefined && h !== null) {
+                    headerMap[String(h).trim().toLowerCase()] = idx;
+                }
+            });
+
+            function findCol(patterns, fallbackIdx) {
+                for (const pattern of patterns) {
+                    for (const [key, idx] of Object.entries(headerMap)) {
+                        if (typeof pattern === 'string' && key.includes(pattern)) return idx;
+                        if (pattern instanceof RegExp && pattern.test(key)) return idx;
+                    }
+                }
+                return fallbackIdx;
+            }
+
+            const cnicCol = findCol(['cnic', 'ntn'], 1);
+            const nameCol = findCol(['buyer', 'customer', 'name'], 2);
+            const dateCol = findCol(['date'], 3);
+            const priceCol = findCol(['price', 'rate'], 4);
+            const qtyCol = findCol(['qty', 'quantity'], 5);
+            const hsCol = findCol(['hs'], 6);
+            const prodCol = findCol(['product', 'desc'], 7);
+            const retailCol = findCol(['retail'], 8);
+            const discPctCol = findCol([/disc.*%/, 'disc %', 'discount %'], 9);
+            const discCol = findCol(['discount', 'disc'], 10);
+            const exValCol = findCol(['ex value', 'excl', 'excluding'], 11);
+            const salesTaxCol = findCol(['sales tax', 'tax'], 12);
+            const inclusiveCol = findCol(['inclusive', 'total value', 'total'], 13);
+            const uomCol = findCol(['uom', 'unit of measure', 'unit'], -1);
+            const ghPctCol = findCol([/g[\/\s]?h.*%/, /g[\/\s]?h.*pct/], -1);
+            const ghAmtCol = findCol([/g[\/\s]?h.*(amount|amt|val)/, /236/], -1);
+
             uploadedExcelData = [];
+            const parsedRows = [];
+
             // Skip header row (row index 0)
             for (let i = 1; i < rawRows.length; i++) {
                 const r = rawRows[i];
-                if (!r || r.length === 0 || (!r[1] && !r[2])) continue; // skip empty rows
+                if (!r || r.length === 0) continue;
 
-                let parsedDiscPct = parseFloat(r[9]) || 0;
+                const cnicVal = cnicCol !== -1 ? r[cnicCol] : r[1];
+                const nameVal = nameCol !== -1 ? r[nameCol] : r[2];
+                if (!cnicVal && !nameVal) continue; // skip empty rows
+
+                let parsedDiscPct = parseFloat(discPctCol !== -1 ? r[discPctCol] : r[9]) || 0;
                 if (parsedDiscPct > 0 && parsedDiscPct < 1) {
                     parsedDiscPct = Math.round(parsedDiscPct * 100 * 1000) / 1000;
                 }
 
-                uploadedExcelData.push({
+                const price = parseFloat(priceCol !== -1 ? r[priceCol] : r[4]) || 0;
+                const qty = parseFloat(qtyCol !== -1 ? r[qtyCol] : r[5]) || 0;
+                const hsCode = String(hsCol !== -1 ? (r[hsCol] || '') : (r[6] || '')).trim();
+                const productName = String(prodCol !== -1 ? (r[prodCol] || '') : (r[7] || '')).trim();
+                const retailVal = parseFloat(retailCol !== -1 ? r[retailCol] : r[8]) || 0;
+                const discount = parseFloat(discCol !== -1 ? r[discCol] : r[10]) || 0;
+                const exVal = parseFloat(exValCol !== -1 ? r[exValCol] : r[11]) || 0;
+                const salesTax = parseFloat(salesTaxCol !== -1 ? r[salesTaxCol] : r[12]) || 0;
+                const inclusiveVal = parseFloat(inclusiveCol !== -1 ? r[inclusiveCol] : r[13]) || 0;
+
+                // UOM column (check header match, or index 14 if provided)
+                let userUom = '';
+                if (uomCol !== -1 && r[uomCol] !== undefined) {
+                    userUom = String(r[uomCol] || '').trim();
+                } else if (r[14] !== undefined && isNaN(parseFloat(r[14])) && String(r[14]).trim()) {
+                    userUom = String(r[14]).trim();
+                }
+
+                // G/H (%) column
+                let ghPct = 0;
+                if (ghPctCol !== -1 && r[ghPctCol] !== undefined) {
+                    ghPct = parseFloat(r[ghPctCol]) || 0;
+                    if (ghPct > 0 && ghPct < 1) {
+                        ghPct = Math.round(ghPct * 100 * 1000) / 1000;
+                    }
+                } else if (r[15] !== undefined && !isNaN(parseFloat(r[15]))) {
+                    ghPct = parseFloat(r[15]) || 0;
+                    if (ghPct > 0 && ghPct < 1) {
+                        ghPct = Math.round(ghPct * 100 * 1000) / 1000;
+                    }
+                }
+
+                // G/H Amount column
+                let ghAmt = 0;
+                if (ghAmtCol !== -1 && r[ghAmtCol] !== undefined && r[ghAmtCol] !== '') {
+                    ghAmt = parseFloat(r[ghAmtCol]) || 0;
+                } else if (r[16] !== undefined && !isNaN(parseFloat(r[16]))) {
+                    ghAmt = parseFloat(r[16]) || 0;
+                } else if (ghPct > 0) {
+                    // Auto-calculate: (exValue + salesTax) * ghPct / 100
+                    ghAmt = Math.round((exVal + salesTax) * ghPct / 100 * 100) / 100;
+                }
+
+                parsedRows.push({
                     srNo: r[0] || i,
-                    cnic: String(r[1] || '').trim(),
-                    name: String(r[2] || '').trim(),
-                    invoiceDate: formatExcelDate(r[3]),
-                    price: parseFloat(r[4]) || 0,
-                    quantity: parseFloat(r[5]) || 0,
-                    hsCode: String(r[6] || '').trim(),
-                    productName: String(r[7] || '').trim(),
-                    retailValue: parseFloat(r[8]) || 0,
+                    cnic: String(cnicVal || '').trim(),
+                    name: String(nameVal || '').trim(),
+                    invoiceDate: formatExcelDate(dateCol !== -1 ? r[dateCol] : r[3]),
+                    price: price,
+                    quantity: qty,
+                    hsCode: hsCode,
+                    productName: productName,
+                    userUom: userUom,
+                    uoM: '',
+                    retailValue: retailVal,
                     discPct: parsedDiscPct,
-                    discount: parseFloat(r[10]) || 0,
-                    exValue: parseFloat(r[11]) || 0,
-                    salesTax: parseFloat(r[12]) || 0,
-                    inclusiveValue: parseFloat(r[13]) || 0,
+                    discount: discount,
+                    exValue: exVal,
+                    salesTax: salesTax,
+                    ghPercent: ghPct,
+                    ghAmount: ghAmt,
+                    inclusiveValue: inclusiveVal,
                     status: 'ready',
                     error: null,
                     fbrInvoiceNo: null
                 });
+            }
+
+            // Validate / auto-fetch exact UOM for every row
+            for (const item of parsedRows) {
+                const uomResult = await resolveUomForHsCode(item.hsCode, item.userUom);
+                if (uomResult.valid) {
+                    item.uoM = uomResult.uomDesc;
+                } else {
+                    item.status = 'error';
+                    item.error = uomResult.error;
+                }
+                uploadedExcelData.push(item);
             }
 
             renderUploadedExcelTable();
@@ -4462,6 +4662,7 @@ function renderUploadedExcelTable() {
                 <td class="px-3 py-2 whitespace-nowrap">${row.invoiceDate}</td>
                 <td class="px-3 py-2">${row.productName}</td>
                 <td class="px-3 py-2 font-mono">${row.hsCode}</td>
+                <td class="px-3 py-2 whitespace-nowrap">${row.uoM ? `<span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 font-medium">${row.uoM}</span>` : '<span class="text-red-500 font-semibold">Missing</span>'}</td>
                 <td class="px-3 py-2 text-right">${row.price.toLocaleString()}</td>
                 <td class="px-3 py-2 text-right">${row.quantity}</td>
                 <td class="px-3 py-2 text-right">${row.retailValue.toLocaleString()}</td>
@@ -4469,13 +4670,15 @@ function renderUploadedExcelTable() {
                 <td class="px-3 py-2 text-right">${row.discount.toLocaleString()}</td>
                 <td class="px-3 py-2 text-right">${row.exValue.toLocaleString()}</td>
                 <td class="px-3 py-2 text-right">${row.salesTax.toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${(row.ghPercent || 0)}%</td>
+                <td class="px-3 py-2 text-right">${(row.ghAmount || 0).toLocaleString()}</td>
                 <td class="px-3 py-2 text-right font-semibold text-gray-900">${row.inclusiveValue.toLocaleString()}</td>
                 <td class="px-3 py-2">${statusHtml}</td>
                 <td class="px-3 py-2 text-center whitespace-nowrap space-x-1">
                     <button type="button" onclick="openEditExcelModal(${index})" class="px-2 py-1 rounded font-medium text-xs transition" style="background-color: #eff6ff !important; color: #2563eb !important; border: 1px solid #bfdbfe !important;" title="Edit row">
                         ✏️ Edit
                     </button>
-                    <button type="button" onclick="generateExcelInvoiceFbr(${index})" ${row.status === 'submitting' ? 'disabled' : ''} class="px-2 py-1 rounded font-medium text-xs transition disabled:opacity-50" style="background-color: #059669 !important; color: #ffffff !important; border: 1px solid #047857 !important;" title="Generate on FBR">
+                    <button type="button" onclick="generateExcelInvoiceFbr(${index})" ${(row.status === 'submitting' || !row.uoM) ? 'disabled' : ''} class="px-2 py-1 rounded font-medium text-xs transition disabled:opacity-50" style="background-color: #059669 !important; color: #ffffff !important; border: 1px solid #047857 !important;" title="Generate on FBR">
                         🚀 Generate
                     </button>
                 </td>
@@ -4496,6 +4699,7 @@ function openEditExcelModal(index) {
     document.getElementById('editExcelDate').value = row.invoiceDate;
     document.getElementById('editExcelProductName').value = row.productName;
     document.getElementById('editExcelHsCode').value = row.hsCode;
+    document.getElementById('editExcelUom').value = row.uoM || '';
     document.getElementById('editExcelPrice').value = row.price;
     document.getElementById('editExcelQty').value = row.quantity;
     document.getElementById('editExcelRetailValue').value = row.retailValue;
@@ -4503,6 +4707,8 @@ function openEditExcelModal(index) {
     document.getElementById('editExcelDiscount').value = row.discount;
     document.getElementById('editExcelExValue').value = row.exValue;
     document.getElementById('editExcelSalesTax').value = row.salesTax;
+    document.getElementById('editExcelGhPct').value = row.ghPercent || 0;
+    document.getElementById('editExcelGhAmount').value = row.ghAmount || 0;
     document.getElementById('editExcelInclusiveValue').value = row.inclusiveValue;
 
     document.getElementById('editExcelModal').classList.remove('hidden');
@@ -4521,6 +4727,7 @@ function saveEditedExcelRow() {
     uploadedExcelData[index].invoiceDate = document.getElementById('editExcelDate').value;
     uploadedExcelData[index].productName = document.getElementById('editExcelProductName').value;
     uploadedExcelData[index].hsCode = document.getElementById('editExcelHsCode').value;
+    uploadedExcelData[index].uoM = document.getElementById('editExcelUom').value.trim();
     uploadedExcelData[index].price = parseFloat(document.getElementById('editExcelPrice').value) || 0;
     uploadedExcelData[index].quantity = parseFloat(document.getElementById('editExcelQty').value) || 0;
     uploadedExcelData[index].retailValue = parseFloat(document.getElementById('editExcelRetailValue').value) || 0;
@@ -4528,7 +4735,15 @@ function saveEditedExcelRow() {
     uploadedExcelData[index].discount = parseFloat(document.getElementById('editExcelDiscount').value) || 0;
     uploadedExcelData[index].exValue = parseFloat(document.getElementById('editExcelExValue').value) || 0;
     uploadedExcelData[index].salesTax = parseFloat(document.getElementById('editExcelSalesTax').value) || 0;
+    uploadedExcelData[index].ghPercent = parseFloat(document.getElementById('editExcelGhPct').value) || 0;
+    uploadedExcelData[index].ghAmount = parseFloat(document.getElementById('editExcelGhAmount').value) || 0;
     uploadedExcelData[index].inclusiveValue = parseFloat(document.getElementById('editExcelInclusiveValue').value) || 0;
+
+    // Reset error if valid UOM was filled
+    if (uploadedExcelData[index].uoM && uploadedExcelData[index].status === 'error' && (uploadedExcelData[index].error || '').toLowerCase().includes('uom')) {
+        uploadedExcelData[index].status = 'ready';
+        uploadedExcelData[index].error = null;
+    }
 
     closeEditExcelModal();
     renderUploadedExcelTable();
@@ -4545,6 +4760,13 @@ async function generateExcelInvoiceFbr(index) {
     const row = uploadedExcelData[index];
     if (!row) return;
 
+    if (!row.uoM) {
+        row.status = 'error';
+        row.error = 'Valid UOM is required before generating invoice.';
+        renderUploadedExcelTable();
+        return;
+    }
+
     row.status = 'submitting';
     row.error = null;
     renderUploadedExcelTable();
@@ -4554,7 +4776,7 @@ async function generateExcelInvoiceFbr(index) {
     const sellerProvince = document.getElementById('sellerProvince')?.value || window.appData?.user?.province || 'Punjab';
     const sellerAddress = document.getElementById('sellerAddress')?.value || window.appData?.user?.address || 'N/A';
 
-    // Determine valid saleType and uoM from FBR reference API data
+    // Determine valid saleType from FBR reference API data
     let thirdScheduleDesc = ' 3rd Schedule Goods ';
     const allTypes = (typeof transactionTypes !== 'undefined' && Array.isArray(transactionTypes))
         ? transactionTypes 
@@ -4565,19 +4787,6 @@ async function generateExcelInvoiceFbr(index) {
     );
     if (matchedType && matchedType.transactioN_DESC) {
         thirdScheduleDesc = matchedType.transactioN_DESC;
-    }
-
-    let uomDesc = 'Numbers, pieces, units';
-    const allUoms = (typeof uoMs !== 'undefined' && Array.isArray(uoMs))
-        ? uoMs 
-        : (window.appData?.uoMs || []);
-    const matchedUom = allUoms.find(u => 
-        (u.description && u.description.toLowerCase().includes('numbers, pieces, units')) ||
-        (u.uoM_DESC && u.uoM_DESC.toLowerCase().includes('numbers, pieces, units')) ||
-        (u.uoM_ID == 69 || u.id == 69)
-    );
-    if (matchedUom) {
-        uomDesc = matchedUom.description || matchedUom.uoM_DESC || uomDesc;
     }
 
     // Determine buyer registration type from FBR API if cnic is provided
@@ -4621,7 +4830,7 @@ async function generateExcelInvoiceFbr(index) {
                 productDescription: row.productName || 'Plastic Articles',
                 hsCode: row.hsCode || '3926.1000',
                 quantity: row.quantity,
-                uoM: uomDesc,
+                uoM: row.uoM,
                 saleType: thirdScheduleDesc,
                 rate: '18%',
                 valueSalesExcludingST: row.exValue,
