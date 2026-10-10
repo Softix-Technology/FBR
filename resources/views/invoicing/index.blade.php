@@ -237,9 +237,9 @@
                                             <td class="px-4 py-3 text-sm text-center">-</td>
                                             <td class="px-4 py-3 text-sm font-bold" id="totalValueSales">0.00</td>
                                             <td class="px-4 py-3 text-sm font-bold" id="totalSalesTax">0.00</td>
-                                            <td class="px-4 py-3 text-sm text-center">-</td>
-                                            <td class="px-4 py-3 text-sm text-center">-</td>
-                                            <td class="px-4 py-3 text-sm text-center">-</td>
+                                            <td class="px-4 py-3 text-sm font-bold" id="totalDiscountAmount">0.00</td>
+                                            <td class="px-4 py-3 text-sm font-bold" id="totalGhAmount">0.00</td>
+                                            <td class="px-4 py-3 text-sm font-bold" id="totalFurtherTax">0.00</td>
                                             <td class="px-4 py-3 text-sm text-center">-</td>
                                         </tr>
                                     </tfoot>
@@ -3517,6 +3517,9 @@ const result = JSON.parse(cleanText);
             const totalQuantityEl = document.getElementById('totalQuantity');
             const totalValueSalesEl = document.getElementById('totalValueSales');
             const totalSalesTaxEl = document.getElementById('totalSalesTax');
+            const totalDiscountAmountEl = document.getElementById('totalDiscountAmount');
+            const totalGhAmountEl = document.getElementById('totalGhAmount');
+            const totalFurtherTaxEl = document.getElementById('totalFurtherTax');
 
             if (itemsData.length === 0) {
                 // Hide footer if no items
@@ -3531,11 +3534,17 @@ const result = JSON.parse(cleanText);
             let totalQuantity = 0;
             let totalValueSales = 0;
             let totalSalesTax = 0;
+            let totalDiscountAmount = 0;
+            let totalGhAmount = 0;
+            let totalFurtherTax = 0;
 
             itemsData.forEach(item => {
                 totalQuantity += parseFloat(item.quantity || 0);
                 totalValueSales += parseFloat(item.valueSalesExcludingST || 0);
                 totalSalesTax += parseFloat(item.salesTaxApplicable || 0);
+                totalDiscountAmount += parseFloat(item.discountAmount || item.discount || 0);
+                totalGhAmount += parseFloat(item.ghAmount || 0);
+                totalFurtherTax += parseFloat(item.furtherTax || 0);
             });
 
             // Update display with appropriate formatting
@@ -3543,8 +3552,9 @@ const result = JSON.parse(cleanText);
             totalQuantityEl.textContent = totalQuantity % 1 === 0 ? totalQuantity.toFixed(0) : totalQuantity.toFixed(2);
             totalValueSalesEl.textContent = totalValueSales.toFixed(2);
             totalSalesTaxEl.textContent = totalSalesTax.toFixed(2);
-
-         
+            if (totalDiscountAmountEl) totalDiscountAmountEl.textContent = totalDiscountAmount.toFixed(2);
+            if (totalGhAmountEl) totalGhAmountEl.textContent = totalGhAmount.toFixed(2);
+            if (totalFurtherTaxEl) totalFurtherTaxEl.textContent = totalFurtherTax.toFixed(2);        
         }
 
         // Update items table display
