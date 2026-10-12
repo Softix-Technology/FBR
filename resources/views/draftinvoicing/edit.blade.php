@@ -297,7 +297,7 @@
     </div>
 
     <!-- Status Messages -->
-    <div id="statusMessages" class="fixed top-4 right-4 z-50 space-y-2"></div>
+    <div id="statusMessages" class="fixed right-4 space-y-2 pointer-events-none" style="top: 80px; z-index: 99999; max-width: 600px; width: calc(100% - 32px);"></div>
 
     <!-- Add Item Modal - Complete version from main invoicing page -->
     <div id="addItemModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
@@ -976,21 +976,21 @@ const result = JSON.parse(cleanText);
                     iconSvg = '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />';
             }
 
-            messageEl.className = `border rounded-md p-4 ${bgColor} shadow-lg max-w-md`;
+            messageEl.className = `border rounded-lg p-4 ${bgColor} shadow-2xl pointer-events-auto transition-all duration-300 w-full`;
             messageEl.innerHTML = `
-                <div class="flex">
-                    <div class="flex-shrink-0">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 pt-0.5">
                         <svg class="h-5 w-5 ${textColor}" viewBox="0 0 20 20" fill="currentColor">
                             ${iconSvg}
                         </svg>
                     </div>
-                    <div class="ml-3">
-                        <p class="text-sm font-medium ${textColor}">
+                    <div class="ml-3 flex-1 overflow-hidden">
+                        <div class="text-sm font-medium ${textColor} max-h-[65vh] overflow-y-auto break-words pr-2 leading-relaxed">
                             ${message}
-                        </p>
+                        </div>
                     </div>
-                    <div class="ml-auto pl-3">
-                        <button onclick="this.parentElement.parentElement.remove()" class="${textColor} hover:${textColor.replace('800', '900')}">
+                    <div class="ml-auto pl-3 flex-shrink-0">
+                        <button type="button" onclick="this.closest('.border').remove()" class="${textColor} hover:${textColor.replace('800', '900')} p-1 rounded focus:outline-none" title="Close">
                             <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                             </svg>
@@ -1001,11 +1001,12 @@ const result = JSON.parse(cleanText);
 
             messagesContainer.appendChild(messageEl);
 
+            const autoDismissTime = type === 'error' ? 20000 : 5000;
             setTimeout(() => {
                 if (messageEl.parentElement) {
                     messageEl.remove();
                 }
-            }, 5000);
+            }, autoDismissTime);
         }
 
         // Simplified formDataToObject for draft saving
