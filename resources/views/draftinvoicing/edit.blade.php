@@ -792,18 +792,35 @@ const result = JSON.parse(cleanText);
                 });
 
                 const text = await response.text();
-console.log('RAW RATE RESPONSE:', text);
+                console.log('RAW SAVE DRAFT RESPONSE:', text);
 
-const cleanText = text.trim().startsWith('{')
-    ? text
-    : text.substring(text.indexOf('{'));
+                let result = null;
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    const trimmed = text.trim();
+                    const firstBrace = trimmed.indexOf('{');
+                    const lastBrace = trimmed.lastIndexOf('}');
+                    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                        try {
+                            result = JSON.parse(trimmed.substring(firstBrace, lastBrace + 1));
+                        } catch (e2) {
+                            result = null;
+                        }
+                    }
+                }
 
-const result = JSON.parse(cleanText);
+                if (!result) {
+                    const errMsg = response.statusText || ('Server error (HTTP ' + response.status + ')');
+                    showMessage('Failed to save draft: ' + errMsg, 'error');
+                    return;
+                }
 
                 if (result.success) {
                     showMessage('Draft saved successfully!', 'success');
                 } else {
-                    showMessage('Failed to save draft: ' + result.message, 'error');
+                    const errMsg = typeof result.message === 'object' ? JSON.stringify(result.message) : (result.message || 'Unknown error');
+                    showMessage('Failed to save draft: ' + errMsg, 'error');
                 }
             } catch (error) {
                 console.error('Save error:', error);
@@ -865,14 +882,30 @@ const result = JSON.parse(cleanText);
             body: JSON.stringify(data)
         });
 
-const text = await response.text();
-console.log('RAW RATE RESPONSE:', text);
+        const text = await response.text();
+        console.log('RAW SUBMIT RESPONSE:', text);
 
-const cleanText = text.trim().startsWith('{')
-    ? text
-    : text.substring(text.indexOf('{'));
+        let result = null;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            const trimmed = text.trim();
+            const firstBrace = trimmed.indexOf('{');
+            const lastBrace = trimmed.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                try {
+                    result = JSON.parse(trimmed.substring(firstBrace, lastBrace + 1));
+                } catch (e2) {
+                    result = null;
+                }
+            }
+        }
 
-const result = JSON.parse(cleanText);
+        if (!result) {
+            const errMsg = response.statusText || ('Server error (HTTP ' + response.status + ')');
+            showMessage('Submission failed: ' + errMsg, 'error');
+            return;
+        }
 
         if (result.success) {
             showMessage('Invoice submitted successfully to FBR!', 'success');
@@ -891,7 +924,8 @@ const result = JSON.parse(cleanText);
                 }
             }, 1500);
         } else {
-            showMessage('Submission failed: ' + result.message, 'error');
+            const errMsg = typeof result.message === 'object' ? JSON.stringify(result.message) : (result.message || 'Submission failed');
+            showMessage('Submission failed: ' + errMsg, 'error');
             if (result.errors) console.error('Validation errors:', result.errors);
         }
     } catch (error) {

@@ -246,6 +246,9 @@ $originalItems = $invoiceData['items'];
 $fbrItems = json_decode(json_encode($invoiceData['items']), true);
 
 // Remove rate only from FBR items
+$cachedTransactionTypes = null;
+$cachedUoms = null;
+
 foreach ($fbrItems as &$item) {
     unset($item['rateValues']);
     if (isset($item['rate'])) {
@@ -262,10 +265,13 @@ foreach ($fbrItems as &$item) {
 
         if ($isNumeric || $isThirdSchedule) {
             try {
-                $fbrService = $this->getFbrApiService();
-                $ttRes = $fbrService->getTransactionTypeCodes($user->fbr_access_token);
-                if ($ttRes['success'] && !empty($ttRes['data'])) {
-                    foreach ($ttRes['data'] as $tType) {
+                if ($cachedTransactionTypes === null) {
+                    $fbrService = $this->getFbrApiService();
+                    $ttRes = $fbrService->getTransactionTypeCodes($user->fbr_access_token);
+                    $cachedTransactionTypes = ($ttRes['success'] && !empty($ttRes['data'])) ? $ttRes['data'] : [];
+                }
+                if (!empty($cachedTransactionTypes)) {
+                    foreach ($cachedTransactionTypes as $tType) {
                         $id = (string)($tType['transactioN_TYPE_ID'] ?? '');
                         $desc = $tType['transactioN_DESC'] ?? '';
                         if ($isNumeric && $id === (string)$st) {
@@ -279,6 +285,31 @@ foreach ($fbrItems as &$item) {
                 }
             } catch (\Exception $e) {
                 Log::warning('Failed to map saleType in submitInvoice: ' . $e->getMessage());
+            }
+        }
+    }
+    // Fallback: If uoM is numeric ID
+    if (isset($item['uoM'])) {
+        $uomVal = trim($item['uoM']);
+        if (is_numeric($uomVal) || ctype_digit((string)$uomVal)) {
+            try {
+                if ($cachedUoms === null) {
+                    $fbrService = $this->getFbrApiService();
+                    $uomRes = $fbrService->getUnitsOfMeasurement($user->fbr_access_token);
+                    $cachedUoms = ($uomRes['success'] && !empty($uomRes['data'])) ? $uomRes['data'] : [];
+                }
+                if (!empty($cachedUoms)) {
+                    foreach ($cachedUoms as $u) {
+                        $uId = (string)($u['uoM_ID'] ?? $u['id'] ?? '');
+                        $uDesc = $u['uoM_DESC'] ?? $u['description'] ?? '';
+                        if ($uId === (string)$uomVal && !empty($uDesc)) {
+                            $item['uoM'] = $uDesc;
+                            break;
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to map uoM in submitInvoice: ' . $e->getMessage());
             }
         }
     }
