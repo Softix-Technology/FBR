@@ -305,8 +305,13 @@
                                 <h2 class="text-lg font-semibold text-gray-900">Uploaded Excel Invoices</h2>
                                 <span id="uploadedItemCountBadge" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">0 rows</span>
                             </div>
-                            <div>
-                                <button type="button" onclick="clearUploadedExcelData()" class="text-xs text-red-600 hover:text-red-800 font-medium underline">Clear Uploaded Data</button>
+                            <div class="flex items-center space-x-3">
+                                <button type="button" id="generateAllExcelBtn" onclick="generateAllExcelInvoicesFbr()" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold text-white shadow-sm transition disabled:opacity-50" style="background-color: #059669 !important; border: 1px solid #047857 !important;" title="Generate all pending invoices on FBR">
+                                    🚀 Generate All
+                                </button>
+                                <button type="button" onclick="clearUploadedExcelData()" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold text-white shadow-sm transition hover:opacity-90" style="background-color: #dc2626 !important; border: 1px solid #b91c1c !important;" title="Clear all uploaded data">
+                                    🗑️ Clear Uploaded Data
+                                </button>
                             </div>
                         </div>
 
@@ -4382,13 +4387,13 @@ async function resolveUomForHsCode(hsCode, userProvidedUom) {
         ? uoMs 
         : (window.appData?.uoMs || []);
 
-    // 1. If customer provided UOM in Excel, strictly validate it against known FBR UOMs
-    if (cleanUserUom) {
+    // 1. If customer provided UOM in Excel, strictly validate it against known FBR UOMs (ignore purely numeric values)
+    if (cleanUserUom && isNaN(Number(cleanUserUom))) {
         const match = allUoms.find(u => {
             const desc = (u.uoM_DESC || u.description || '').toLowerCase().trim();
             const id = String(u.uoM_ID || u.id || '').trim();
             const target = cleanUserUom.toLowerCase();
-            return desc === target || id === target || desc.includes(target) || target.includes(desc);
+            return desc === target || id === target || (target.length >= 2 && desc.includes(target)) || (desc.length >= 2 && target.includes(desc));
         });
 
         if (match) {
@@ -4508,7 +4513,7 @@ function handleExcelUpload(e) {
             const exValCol = findCol(['ex value', 'excl', 'excluding'], 11);
             const salesTaxCol = findCol(['sales tax', 'tax'], 12);
             const inclusiveCol = findCol(['inclusive', 'total value', 'total'], 13);
-            const uomCol = findCol(['uom', 'unit of measure', 'unit'], -1);
+            const uomCol = findCol(['unit of measure', 'unit of measurement', /^unit$/i, 'uom'], -1);
             const ghPctCol = findCol([/g[\/\s]?h.*%/, /g[\/\s]?h.*pct/], -1);
             const ghAmtCol = findCol([/g[\/\s]?h.*(amount|amt|val)/, /236/], -1);
 
@@ -4542,7 +4547,10 @@ function handleExcelUpload(e) {
                 // UOM column (check header match, or index 14 if provided)
                 let userUom = '';
                 if (uomCol !== -1 && r[uomCol] !== undefined) {
-                    userUom = String(r[uomCol] || '').trim();
+                    const candidate = String(r[uomCol] || '').trim();
+                    if (candidate && isNaN(Number(candidate))) {
+                        userUom = candidate;
+                    }
                 } else if (r[14] !== undefined && isNaN(parseFloat(r[14])) && String(r[14]).trim()) {
                     userUom = String(r[14]).trim();
                 }
@@ -4664,7 +4672,7 @@ function renderUploadedExcelTable() {
                 <td class="px-3 py-2 font-mono">${row.hsCode}</td>
                 <td class="px-3 py-2 whitespace-nowrap">${row.uoM ? `<span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 font-medium">${row.uoM}</span>` : '<span class="text-red-500 font-semibold">Missing</span>'}</td>
                 <td class="px-3 py-2 text-right">${row.price.toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${row.quantity}</td>
+                <td class="px-3 py-2 text-right">${(parseFloat(row.quantity) || 0).toFixed(3)}</td>
                 <td class="px-3 py-2 text-right">${row.retailValue.toLocaleString()}</td>
                 <td class="px-3 py-2 text-right">${row.discPct}%</td>
                 <td class="px-3 py-2 text-right">${row.discount.toLocaleString()}</td>
@@ -4678,9 +4686,10 @@ function renderUploadedExcelTable() {
                     <button type="button" onclick="openEditExcelModal(${index})" class="px-2 py-1 rounded font-medium text-xs transition" style="background-color: #eff6ff !important; color: #2563eb !important; border: 1px solid #bfdbfe !important;" title="Edit row">
                         ✏️ Edit
                     </button>
-                    <button type="button" onclick="generateExcelInvoiceFbr(${index})" ${(row.status === 'submitting' || !row.uoM) ? 'disabled' : ''} class="px-2 py-1 rounded font-medium text-xs transition disabled:opacity-50" style="background-color: #059669 !important; color: #ffffff !important; border: 1px solid #047857 !important;" title="Generate on FBR">
+                    <button type="button" onclick="generateExcelInvoiceFbr(${index})" ${(row.status === 'submitting' || !row.uoM || (typeof isGeneratingAllExcel !== 'undefined' && isGeneratingAllExcel)) ? 'disabled' : ''} class="px-2 py-1 rounded font-medium text-xs transition disabled:opacity-50" style="background-color: #059669 !important; color: #ffffff !important; border: 1px solid #047857 !important;" title="Generate on FBR">
                         🚀 Generate
                     </button>
+                    ${(row.status === 'error' && row.error) ? `<div class="text-xs text-red-600 font-medium mt-1 max-w-xs text-center whitespace-normal break-words" title="${row.error}">⚠️ ${row.error}</div>` : ''}
                 </td>
             </tr>
         `;
@@ -4751,6 +4760,7 @@ function saveEditedExcelRow() {
 
 function clearUploadedExcelData() {
     if (confirm('Are you sure you want to clear all uploaded Excel rows?')) {
+        isGeneratingAllExcel = false;
         uploadedExcelData = [];
         renderUploadedExcelTable();
     }
@@ -4871,6 +4881,57 @@ async function generateExcelInvoiceFbr(index) {
         row.error = err.message || 'Network error';
     }
 
+    renderUploadedExcelTable();
+}
+
+let isGeneratingAllExcel = false;
+
+async function generateAllExcelInvoicesFbr() {
+    if (isGeneratingAllExcel) return;
+    if (!uploadedExcelData || uploadedExcelData.length === 0) {
+        alert('No uploaded invoices to generate.');
+        return;
+    }
+
+    const pendingIndices = [];
+    uploadedExcelData.forEach((row, idx) => {
+        if (row.status !== 'success') {
+            pendingIndices.push(idx);
+        }
+    });
+
+    if (pendingIndices.length === 0) {
+        alert('All invoices have already been generated successfully.');
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to generate all ${pendingIndices.length} pending invoice(s) on FBR?`)) {
+        return;
+    }
+
+    isGeneratingAllExcel = true;
+    const btn = document.getElementById('generateAllExcelBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="inline-block animate-spin mr-1">⏳</span> Generating (0/${pendingIndices.length})...`;
+    }
+
+    renderUploadedExcelTable();
+
+    let processed = 0;
+    for (const idx of pendingIndices) {
+        if (btn) {
+            btn.innerHTML = `<span class="inline-block animate-spin mr-1">⏳</span> Generating (${processed + 1}/${pendingIndices.length})...`;
+        }
+        await generateExcelInvoiceFbr(idx);
+        processed++;
+    }
+
+    isGeneratingAllExcel = false;
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `🚀 Generate All`;
+    }
     renderUploadedExcelTable();
 }
 
