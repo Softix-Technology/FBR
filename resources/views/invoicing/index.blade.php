@@ -4382,6 +4382,78 @@ function formatExcelDate(val) {
     return str;
 }
 
+function findMatchingUom(rawUom, uomList) {
+    if (!rawUom || !Array.isArray(uomList) || uomList.length === 0) return null;
+    const target = String(rawUom).toLowerCase().trim();
+    if (!target || !isNaN(Number(target))) return null;
+    const targetNoSpace = target.replace(/[\s\-_.]/g, '');
+
+    // 1a. Exact match first (case-insensitive) - Highest priority!
+    let match = uomList.find(u => {
+        const desc = (u.uoM_DESC || u.description || '').toLowerCase().trim();
+        const id = String(u.uoM_ID || u.id || '').trim();
+        return desc === target || id === target;
+    });
+    if (match) return match;
+
+    // 1b. Normalized exact match (ignoring spaces, dashes, dots, e.g. "40 KG" === "40KG")
+    match = uomList.find(u => {
+        const desc = (u.uoM_DESC || u.description || '').toLowerCase().trim();
+        const descNoSpace = desc.replace(/[\s\-_.]/g, '');
+        return descNoSpace === targetNoSpace;
+    });
+    if (match) return match;
+
+    // 1c. Common aliases / plurals
+    const aliases = {
+        'kgs': 'kg',
+        'kilogram': 'kg',
+        'kilograms': 'kg',
+        'pcs': 'pcs',
+        'pc': 'pcs',
+        'piece': 'pcs',
+        'pieces': 'pcs',
+        'nos': 'no',
+        'number': 'no',
+        'numbers': 'no',
+        'mtr': 'meter',
+        'mtrs': 'meter',
+        'metre': 'meter',
+        'metres': 'meter',
+        'meters': 'meter',
+        'ltr': 'liter',
+        'ltrs': 'liter',
+        'litre': 'liter',
+        'litres': 'liter',
+        'liters': 'liter'
+    };
+    const aliasTarget = aliases[target];
+    if (aliasTarget) {
+        match = uomList.find(u => {
+            const desc = (u.uoM_DESC || u.description || '').toLowerCase().trim();
+            return desc === aliasTarget;
+        });
+        if (match) return match;
+    }
+
+    // 1d. Whole-word match (ensures "kg" does not match "40kg")
+    match = uomList.find(u => {
+        const desc = (u.uoM_DESC || u.description || '').toLowerCase().trim();
+        const regex = new RegExp('(?:^|[^a-zA-Z0-9])' + target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:$|[^a-zA-Z0-9])', 'i');
+        return regex.test(desc);
+    });
+    if (match) return match;
+
+    // 1e. Safe substring match: only if desc does not start with digits (prevent "kg" from matching "40KG")
+    match = uomList.find(u => {
+        const desc = (u.uoM_DESC || u.description || '').toLowerCase().trim();
+        if (/^\d/.test(desc) && !/^\d/.test(target)) return false;
+        return (target.length >= 3 && desc.includes(target)) || (desc.length >= 3 && target.includes(desc));
+    });
+
+    return match || null;
+}
+
 async function resolveUomForHsCode(hsCode, userProvidedUom) {
     const cleanHs = String(hsCode || '').trim();
     const cleanUserUom = String(userProvidedUom || '').trim();
@@ -4392,12 +4464,42 @@ async function resolveUomForHsCode(hsCode, userProvidedUom) {
 
     // 1. If customer provided UOM in Excel, strictly validate it against known FBR UOMs (ignore purely numeric values)
     if (cleanUserUom && isNaN(Number(cleanUserUom))) {
-        const match = allUoms.find(u => {
-            const desc = (u.uoM_DESC || u.description || '').toLowerCase().trim();
-            const id = String(u.uoM_ID || u.id || '').trim();
-            const target = cleanUserUom.toLowerCase();
-            return desc === target || id === target || (target.length >= 2 && desc.includes(target)) || (desc.length >= 2 && target.includes(desc));
-        });
+        let match = findMatchingUom(cleanUserUom, allUoms);
+
+        // If not found in allUoms (e.g. allUoms was empty or incomplete), try looking up by HS code from FBR API
+        if (!match && cleanHs) {
+            let hsUoms = [];
+            if (typeof uomCache !== 'undefined' && uomCache.has(cleanHs)) {
+                const cached = uomCache.get(cleanHs);
+                if (cached && cached.data) hsUoms = cached.data;
+            } else {
+                try {
+                    const response = await fetch(`${API_BASE}/premiertax/api/fbr/uom-by-hs-code`, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': CSRF_TOKEN
+                        },
+                        body: JSON.stringify({ hs_code: cleanHs })
+                    });
+                    const text = await response.text();
+                    const cleanText = text.trim().startsWith('{') ? text : text.substring(text.indexOf('{'));
+                    const result = JSON.parse(cleanText);
+                    if (result.success && result.data) {
+                        hsUoms = result.data;
+                        if (typeof uomCache !== 'undefined') {
+                            uomCache.set(cleanHs, { data: hsUoms, timestamp: Date.now() });
+                        }
+                    }
+                } catch (e) {
+                    // Ignore lookup error here
+                }
+            }
+            if (hsUoms.length > 0) {
+                match = findMatchingUom(cleanUserUom, hsUoms);
+            }
+        }
 
         if (match) {
             return {
