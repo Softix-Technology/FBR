@@ -306,6 +306,9 @@
                                 <span id="uploadedItemCountBadge" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">0 rows</span>
                             </div>
                             <div class="flex items-center space-x-3">
+                                <button type="button" onclick="downloadSampleExcel()" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold text-white shadow-sm transition hover:opacity-90" style="background-color: #2563eb !important; border: 1px solid #1d4ed8 !important;" title="Download sample Excel template">
+                                    📥 Download Sample
+                                </button>
                                 <button type="button" id="generateAllExcelBtn" onclick="generateAllExcelInvoicesFbr()" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold text-white shadow-sm transition disabled:opacity-50" style="background-color: #059669 !important; border: 1px solid #047857 !important;" title="Generate all pending invoices on FBR">
                                     🚀 Generate All
                                 </button>
@@ -4933,6 +4936,66 @@ async function generateAllExcelInvoicesFbr() {
         btn.innerHTML = `🚀 Generate All`;
     }
     renderUploadedExcelTable();
+}
+
+function downloadSampleExcel() {
+    if (typeof XLSX === 'undefined') {
+        alert('Excel library is loading. Please refresh or try again in a moment.');
+        return;
+    }
+
+    const headers = [
+        'Sr No',
+        'CNIC',
+        'Buyer Name',
+        'Date',
+        'Price',
+        'Qty',
+        'HS Code',
+        'Product',
+        'Retail Value',
+        'Disc %',
+        'Discount',
+        'Ex Value',
+        'Sales Tax',
+        'Inclusive Value',
+        'UOM',
+        'G/H %',
+        'G/H Amount'
+    ];
+
+    const today = new Date().toISOString().split('T')[0];
+    const sampleRows = [
+        [1, '3520112345671', 'ABC Traders', today, 500, 10, '3926.1000', 'Plastic Articles', 5000, 0, 0, 5000, 900, 5900, '', 0, 0],
+        [2, '4210112345672', 'XYZ Enterprises', today, 1000, 5, '7615.1000', 'Aluminium Utensils', 5000, 5, 250, 4750, 855, 5605, '', 0.1, 5.61]
+    ];
+
+    const wsData = [headers, ...sampleRows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    ws['!cols'] = [
+        { wch: 8 },  // Sr No
+        { wch: 16 }, // CNIC
+        { wch: 22 }, // Buyer Name
+        { wch: 12 }, // Date
+        { wch: 10 }, // Price
+        { wch: 10 }, // Qty
+        { wch: 14 }, // HS Code
+        { wch: 22 }, // Product
+        { wch: 12 }, // Retail Value
+        { wch: 8 },  // Disc %
+        { wch: 10 }, // Discount
+        { wch: 12 }, // Ex Value
+        { wch: 12 }, // Sales Tax
+        { wch: 15 }, // Inclusive Value
+        { wch: 10 }, // UOM
+        { wch: 8 },  // G/H %
+        { wch: 12 }  // G/H Amount
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sample_Invoice_Format');
+    XLSX.writeFile(wb, 'Sale_Invoice_Sample_Template.xlsx');
 }
 
 </script>
