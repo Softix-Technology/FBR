@@ -323,6 +323,7 @@
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">#</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Inv #</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">CNIC</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Buyer Name</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Inv Date</th>
@@ -355,12 +356,21 @@
                             <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="closeEditExcelModal()"></div>
                             <div class="inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-lg shadow-xl">
                                 <div class="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                                    <h3 class="text-lg font-semibold text-gray-900">Edit Uploaded Invoice Item</h3>
+                                    <h3 class="text-lg font-semibold text-gray-900" id="editExcelModalTitle">Edit Uploaded Invoice Item</h3>
                                     <button type="button" onclick="closeEditExcelModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
                                 </div>
                                 <div class="p-6 space-y-4">
                                     <input type="hidden" id="editExcelRowIndex">
+                                    <input type="hidden" id="editExcelItemIndex" value="0">
                                     <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Invoice No</label>
+                                            <input type="text" id="editExcelInvNo" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm" placeholder="e.g. INV-001">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">Invoice Date</label>
+                                            <input type="text" id="editExcelDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
                                         <div>
                                             <label class="block text-xs font-medium text-gray-700">CNIC</label>
                                             <input type="text" id="editExcelCnic" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
@@ -368,10 +378,6 @@
                                         <div>
                                             <label class="block text-xs font-medium text-gray-700">Buyer Name</label>
                                             <input type="text" id="editExcelName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs font-medium text-gray-700">Invoice Date</label>
-                                            <input type="text" id="editExcelDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-gray-700">Product Name</label>
@@ -4605,6 +4611,7 @@ function handleExcelUpload(e) {
                 return fallbackIdx;
             }
 
+            const invNoCol = findCol(['invoice no', 'invoice number', 'invoice #', 'inv no', 'inv #', 'bill no', 'bill number'], -1);
             const cnicCol = findCol(['cnic', 'ntn'], 1);
             const nameCol = findCol(['buyer', 'customer', 'name'], 2);
             const dateCol = findCol(['date'], 3);
@@ -4623,16 +4630,24 @@ function handleExcelUpload(e) {
             const ghAmtCol = findCol([/g[\/\s]?h.*(amount|amt|val)/, /236/], -1);
 
             uploadedExcelData = [];
-            const parsedRows = [];
+            const invoicesMap = new Map();
 
             // Skip header row (row index 0)
             for (let i = 1; i < rawRows.length; i++) {
                 const r = rawRows[i];
                 if (!r || r.length === 0) continue;
 
+                const rawInvNo = (invNoCol !== -1 && r[invNoCol] !== undefined && r[invNoCol] !== null) ? String(r[invNoCol]).trim() : '';
                 const cnicVal = cnicCol !== -1 ? r[cnicCol] : r[1];
                 const nameVal = nameCol !== -1 ? r[nameCol] : r[2];
-                if (!cnicVal && !nameVal) continue; // skip empty rows
+
+                // If no CNIC, Name, and no Invoice No, skip empty row
+                if (!cnicVal && !nameVal && !rawInvNo) continue;
+
+                // Grouping rule:
+                // If invoice number is provided, group items by invoice number.
+                // If invoice number is missing/empty (e.g. old template), each row gets its own independent group key.
+                const groupKey = rawInvNo ? ('inv_' + rawInvNo.toLowerCase()) : ('row_' + i);
 
                 let parsedDiscPct = parseFloat(discPctCol !== -1 ? r[discPctCol] : r[9]) || 0;
                 if (parsedDiscPct > 0 && parsedDiscPct < 1) {
@@ -4685,17 +4700,14 @@ function handleExcelUpload(e) {
                     ghAmt = Math.round((exVal + salesTax) * ghPct / 100 * 100) / 100;
                 }
 
-                parsedRows.push({
+                const itemData = {
                     srNo: r[0] || i,
-                    cnic: String(cnicVal || '').trim(),
-                    name: String(nameVal || '').trim(),
-                    invoiceDate: formatExcelDate(dateCol !== -1 ? r[dateCol] : r[3]),
-                    price: price,
-                    quantity: qty,
-                    hsCode: hsCode,
                     productName: productName,
+                    hsCode: hsCode,
                     userUom: userUom,
                     uoM: '',
+                    price: price,
+                    quantity: qty,
                     retailValue: retailVal,
                     discPct: parsedDiscPct,
                     discount: discount,
@@ -4705,21 +4717,55 @@ function handleExcelUpload(e) {
                     ghAmount: ghAmt,
                     inclusiveValue: inclusiveVal,
                     status: 'ready',
-                    error: null,
-                    fbrInvoiceNo: null
-                });
+                    error: null
+                };
+
+                const formattedDate = formatExcelDate(dateCol !== -1 ? r[dateCol] : r[3]);
+
+                if (!invoicesMap.has(groupKey)) {
+                    invoicesMap.set(groupKey, {
+                        invoiceNo: rawInvNo,
+                        cnic: String(cnicVal || '').trim(),
+                        name: String(nameVal || '').trim(),
+                        invoiceDate: formattedDate,
+                        status: 'ready',
+                        error: null,
+                        fbrInvoiceNo: null,
+                        items: [itemData]
+                    });
+                } else {
+                    const existingInv = invoicesMap.get(groupKey);
+                    // Inherit header fields if missing on subsequent item rows
+                    if (!existingInv.cnic && cnicVal) existingInv.cnic = String(cnicVal).trim();
+                    if (!existingInv.name && nameVal) existingInv.name = String(nameVal).trim();
+                    if (!existingInv.invoiceDate && formattedDate) existingInv.invoiceDate = formattedDate;
+                    existingInv.items.push(itemData);
+                }
             }
 
-            // Validate / auto-fetch exact UOM for every row
-            for (const item of parsedRows) {
-                const uomResult = await resolveUomForHsCode(item.hsCode, item.userUom);
-                if (uomResult.valid) {
-                    item.uoM = uomResult.uomDesc;
-                } else {
-                    item.status = 'error';
-                    item.error = uomResult.error;
+            uploadedExcelData = Array.from(invoicesMap.values());
+
+            // Validate / auto-fetch exact UOM for every item of every invoice
+            for (const inv of uploadedExcelData) {
+                let invHasError = false;
+                const errList = [];
+                for (const item of inv.items) {
+                    const uomResult = await resolveUomForHsCode(item.hsCode, item.userUom);
+                    if (uomResult.valid) {
+                        item.uoM = uomResult.uomDesc;
+                    } else {
+                        item.status = 'error';
+                        item.error = uomResult.error;
+                        invHasError = true;
+                        if (!errList.includes(uomResult.error)) {
+                            errList.push(uomResult.error);
+                        }
+                    }
                 }
-                uploadedExcelData.push(item);
+                if (invHasError) {
+                    inv.status = 'error';
+                    inv.error = errList.join('; ');
+                }
             }
 
             renderUploadedExcelTable();
@@ -4746,84 +4792,157 @@ function renderUploadedExcelTable() {
     }
 
     container.classList.remove('hidden');
-    badge.textContent = `${uploadedExcelData.length} rows`;
+    const totalItems = uploadedExcelData.reduce((sum, inv) => sum + (inv.items ? inv.items.length : 0), 0);
+    badge.textContent = `${uploadedExcelData.length} invoice${uploadedExcelData.length === 1 ? '' : 's'} (${totalItems} item${totalItems === 1 ? '' : 's'})`;
 
     let html = '';
-    uploadedExcelData.forEach((row, index) => {
+    uploadedExcelData.forEach((invoice, invIndex) => {
+        const items = invoice.items || [];
+        const rowSpan = items.length || 1;
+        const hasMultiple = rowSpan > 1;
+
+        const totalInc = items.reduce((s, it) => s + (parseFloat(it.inclusiveValue) || 0), 0);
+
         let statusHtml = '';
-        if (row.status === 'submitting') {
+        if (invoice.status === 'submitting') {
             statusHtml = `<span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold animate-pulse">Submitting...</span>`;
-        } else if (row.status === 'success') {
+        } else if (invoice.status === 'success') {
             statusHtml = `<span class="px-2 py-0.5 rounded bg-green-100 text-green-800 font-semibold">Generated</span>`;
-            if (row.fbrInvoiceNo) {
-                statusHtml += `<div class="text-xs text-green-700 font-mono mt-0.5">${row.fbrInvoiceNo}</div>`;
+            if (invoice.fbrInvoiceNo) {
+                statusHtml += `<div class="text-xs text-green-700 font-mono mt-0.5">${invoice.fbrInvoiceNo}</div>`;
             }
-        } else if (row.status === 'error') {
+        } else if (invoice.status === 'error') {
             statusHtml = `<span class="px-2 py-0.5 rounded bg-red-100 text-red-800 font-semibold">Failed</span>`;
-            if (row.error) {
-                statusHtml += `<div class="text-xs text-red-600 mt-1 max-w-xs break-words">${row.error}</div>`;
+            if (invoice.error) {
+                statusHtml += `<div class="text-xs text-red-600 mt-1 max-w-xs break-words">${invoice.error}</div>`;
             }
         } else {
             statusHtml = `<span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-semibold">Ready</span>`;
         }
 
-        html += `
-            <tr class="hover:bg-gray-50">
-                <td class="px-3 py-2">${index + 1}</td>
-                <td class="px-3 py-2 font-mono">${row.cnic}</td>
-                <td class="px-3 py-2 font-medium text-gray-900">${row.name}</td>
-                <td class="px-3 py-2 whitespace-nowrap">${row.invoiceDate}</td>
-                <td class="px-3 py-2">${row.productName}</td>
-                <td class="px-3 py-2 font-mono">${row.hsCode}</td>
-                <td class="px-3 py-2 whitespace-nowrap">${row.uoM ? `<span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 font-medium">${row.uoM}</span>` : '<span class="text-red-500 font-semibold">Missing</span>'}</td>
-                <td class="px-3 py-2 text-right">${row.price.toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${(parseFloat(row.quantity) || 0).toFixed(3)}</td>
-                <td class="px-3 py-2 text-right">${row.retailValue.toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${row.discPct}%</td>
-                <td class="px-3 py-2 text-right">${row.discount.toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${row.exValue.toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${row.salesTax.toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${(row.ghPercent || 0)}%</td>
-                <td class="px-3 py-2 text-right">${(row.ghAmount || 0).toLocaleString()}</td>
-                <td class="px-3 py-2 text-right font-semibold text-gray-900">${row.inclusiveValue.toLocaleString()}</td>
-                <td class="px-3 py-2">${statusHtml}</td>
-                <td class="px-3 py-2 text-center whitespace-nowrap space-x-1">
-                    <button type="button" onclick="openEditExcelModal(${index})" class="px-2 py-1 rounded font-medium text-xs transition" style="background-color: #eff6ff !important; color: #2563eb !important; border: 1px solid #bfdbfe !important;" title="Edit row">
-                        ✏️ Edit
-                    </button>
-                    <button type="button" onclick="generateExcelInvoiceFbr(${index})" ${(row.status === 'submitting' || !row.uoM || (typeof isGeneratingAllExcel !== 'undefined' && isGeneratingAllExcel)) ? 'disabled' : ''} class="px-2 py-1 rounded font-medium text-xs transition disabled:opacity-50" style="background-color: #059669 !important; color: #ffffff !important; border: 1px solid #047857 !important;" title="Generate on FBR">
-                        🚀 Generate
-                    </button>
-                    ${(row.status === 'error' && row.error) ? `<div class="text-xs text-red-600 font-medium mt-1 max-w-xs text-center whitespace-normal break-words" title="${row.error}">⚠️ ${row.error}</div>` : ''}
+        const anyMissingUom = items.some(it => !it.uoM);
+        const isGenerating = typeof isGeneratingAllExcel !== 'undefined' && isGeneratingAllExcel;
+        const generateDisabled = invoice.status === 'submitting' || anyMissingUom || isGenerating;
+
+        items.forEach((item, itemIndex) => {
+            const isFirst = itemIndex === 0;
+            const borderTopClass = isFirst && invIndex > 0 ? 'border-t-2 border-gray-300' : '';
+
+            html += `<tr class="hover:bg-gray-50 ${borderTopClass}">`;
+
+            // Common header columns only rendered on first item row with rowspan
+            if (isFirst) {
+                html += `
+                    <td class="px-3 py-2 text-center font-medium text-gray-700 bg-gray-50/50 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
+                        ${invIndex + 1}
+                    </td>
+                    <td class="px-3 py-2 font-mono text-gray-800 bg-gray-50/50 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
+                        ${invoice.invoiceNo ? `<span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold text-xs">${invoice.invoiceNo}</span>` : '<span class="text-gray-400 font-mono">-</span>'}
+                        ${hasMultiple ? `<div class="text-[11px] text-indigo-600 font-semibold mt-1">📦 ${rowSpan} Items</div>` : ''}
+                    </td>
+                    <td class="px-3 py-2 font-mono bg-gray-50/50 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
+                        ${invoice.cnic || '-'}
+                    </td>
+                    <td class="px-3 py-2 font-medium text-gray-900 bg-gray-50/50 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
+                        ${invoice.name || '-'}
+                    </td>
+                    <td class="px-3 py-2 whitespace-nowrap bg-gray-50/50 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
+                        ${invoice.invoiceDate || '-'}
+                    </td>
+                `;
+            }
+
+            // Item-specific columns
+            html += `
+                <td class="px-3 py-2">
+                    <div class="flex items-center justify-between">
+                        <span>${item.productName || '-'}</span>
+                        <button type="button" onclick="openEditExcelModal(${invIndex}, ${itemIndex})" class="text-blue-600 hover:text-blue-800 ml-1.5 text-xs inline-block" title="Edit this item">
+                            ✏️
+                        </button>
+                    </div>
                 </td>
-            </tr>
-        `;
+                <td class="px-3 py-2 font-mono">${item.hsCode || '-'}</td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                    ${item.uoM ? `<span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 font-medium">${item.uoM}</span>` : '<span class="text-red-500 font-semibold">Missing</span>'}
+                </td>
+                <td class="px-3 py-2 text-right">${(parseFloat(item.price) || 0).toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${(parseFloat(item.quantity) || 0).toFixed(3)}</td>
+                <td class="px-3 py-2 text-right">${(parseFloat(item.retailValue) || 0).toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${item.discPct || 0}%</td>
+                <td class="px-3 py-2 text-right">${(parseFloat(item.discount) || 0).toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${(parseFloat(item.exValue) || 0).toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${(parseFloat(item.salesTax) || 0).toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${(item.ghPercent || 0)}%</td>
+                <td class="px-3 py-2 text-right">${(item.ghAmount || 0).toLocaleString()}</td>
+                <td class="px-3 py-2 text-right font-semibold text-gray-900">${(parseFloat(item.inclusiveValue) || 0).toLocaleString()}</td>
+            `;
+
+            // Common status and actions columns only rendered on first item row with rowspan
+            if (isFirst) {
+                html += `
+                    <td class="px-3 py-2 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
+                        ${statusHtml}
+                    </td>
+                    <td class="px-3 py-2 text-center whitespace-nowrap align-top space-y-1" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
+                        ${!hasMultiple ? `
+                            <button type="button" onclick="openEditExcelModal(${invIndex}, 0)" class="px-2 py-1 rounded font-medium text-xs transition mr-1" style="background-color: #eff6ff !important; color: #2563eb !important; border: 1px solid #bfdbfe !important;" title="Edit row">
+                                ✏️ Edit
+                            </button>
+                        ` : ''}
+                        <button type="button" onclick="generateExcelInvoiceFbr(${invIndex})" ${generateDisabled ? 'disabled' : ''} class="px-2 py-1 rounded font-medium text-xs transition disabled:opacity-50" style="background-color: #059669 !important; color: #ffffff !important; border: 1px solid #047857 !important;" title="Generate on FBR">
+                            🚀 Generate
+                        </button>
+                        ${hasMultiple ? `
+                            <div class="text-[11px] font-semibold text-gray-800 mt-1">Total: ${totalInc.toLocaleString()}</div>
+                        ` : ''}
+                        ${(invoice.status === 'error' && invoice.error) ? `<div class="text-xs text-red-600 font-medium mt-1 max-w-xs text-center whitespace-normal break-words" title="${invoice.error}">⚠️ ${invoice.error}</div>` : ''}
+                    </td>
+                `;
+            }
+
+            html += `</tr>`;
+        });
     });
 
     tbody.innerHTML = html;
 }
 
-function openEditExcelModal(index) {
-    const row = uploadedExcelData[index];
-    if (!row) return;
+function openEditExcelModal(invIndex, itemIndex = 0) {
+    const invoice = uploadedExcelData[invIndex];
+    if (!invoice) return;
+    const item = (invoice.items && invoice.items[itemIndex]) ? invoice.items[itemIndex] : invoice;
+    if (!item) return;
 
-    document.getElementById('editExcelRowIndex').value = index;
-    document.getElementById('editExcelCnic').value = row.cnic;
-    document.getElementById('editExcelName').value = row.name;
-    document.getElementById('editExcelDate').value = row.invoiceDate;
-    document.getElementById('editExcelProductName').value = row.productName;
-    document.getElementById('editExcelHsCode').value = row.hsCode;
-    document.getElementById('editExcelUom').value = row.uoM || '';
-    document.getElementById('editExcelPrice').value = row.price;
-    document.getElementById('editExcelQty').value = row.quantity;
-    document.getElementById('editExcelRetailValue').value = row.retailValue;
-    document.getElementById('editExcelDiscPct').value = row.discPct;
-    document.getElementById('editExcelDiscount').value = row.discount;
-    document.getElementById('editExcelExValue').value = row.exValue;
-    document.getElementById('editExcelSalesTax').value = row.salesTax;
-    document.getElementById('editExcelGhPct').value = row.ghPercent || 0;
-    document.getElementById('editExcelGhAmount').value = row.ghAmount || 0;
-    document.getElementById('editExcelInclusiveValue').value = row.inclusiveValue;
+    document.getElementById('editExcelRowIndex').value = invIndex;
+    document.getElementById('editExcelItemIndex').value = itemIndex;
+
+    const modalTitle = document.getElementById('editExcelModalTitle');
+    if (modalTitle) {
+        modalTitle.textContent = (invoice.items && invoice.items.length > 1) 
+            ? `Edit Invoice Item (Item ${itemIndex + 1} of ${invoice.items.length})`
+            : `Edit Uploaded Invoice Item`;
+    }
+
+    if (document.getElementById('editExcelInvNo')) {
+        document.getElementById('editExcelInvNo').value = invoice.invoiceNo || '';
+    }
+    document.getElementById('editExcelCnic').value = invoice.cnic || '';
+    document.getElementById('editExcelName').value = invoice.name || '';
+    document.getElementById('editExcelDate').value = invoice.invoiceDate || '';
+    document.getElementById('editExcelProductName').value = item.productName || '';
+    document.getElementById('editExcelHsCode').value = item.hsCode || '';
+    document.getElementById('editExcelUom').value = item.uoM || '';
+    document.getElementById('editExcelPrice').value = item.price !== undefined ? item.price : 0;
+    document.getElementById('editExcelQty').value = item.quantity !== undefined ? item.quantity : 0;
+    document.getElementById('editExcelRetailValue').value = item.retailValue !== undefined ? item.retailValue : 0;
+    document.getElementById('editExcelDiscPct').value = item.discPct !== undefined ? item.discPct : 0;
+    document.getElementById('editExcelDiscount').value = item.discount !== undefined ? item.discount : 0;
+    document.getElementById('editExcelExValue').value = item.exValue !== undefined ? item.exValue : 0;
+    document.getElementById('editExcelSalesTax').value = item.salesTax !== undefined ? item.salesTax : 0;
+    document.getElementById('editExcelGhPct').value = item.ghPercent || 0;
+    document.getElementById('editExcelGhAmount').value = item.ghAmount || 0;
+    document.getElementById('editExcelInclusiveValue').value = item.inclusiveValue !== undefined ? item.inclusiveValue : 0;
 
     document.getElementById('editExcelModal').classList.remove('hidden');
 }
@@ -4833,30 +4952,44 @@ function closeEditExcelModal() {
 }
 
 function saveEditedExcelRow() {
-    const index = parseInt(document.getElementById('editExcelRowIndex').value);
-    if (isNaN(index) || !uploadedExcelData[index]) return;
+    const invIndex = parseInt(document.getElementById('editExcelRowIndex').value);
+    const itemIndex = parseInt(document.getElementById('editExcelItemIndex').value || '0');
+    if (isNaN(invIndex) || !uploadedExcelData[invIndex]) return;
 
-    uploadedExcelData[index].cnic = document.getElementById('editExcelCnic').value;
-    uploadedExcelData[index].name = document.getElementById('editExcelName').value;
-    uploadedExcelData[index].invoiceDate = document.getElementById('editExcelDate').value;
-    uploadedExcelData[index].productName = document.getElementById('editExcelProductName').value;
-    uploadedExcelData[index].hsCode = document.getElementById('editExcelHsCode').value;
-    uploadedExcelData[index].uoM = document.getElementById('editExcelUom').value.trim();
-    uploadedExcelData[index].price = parseFloat(document.getElementById('editExcelPrice').value) || 0;
-    uploadedExcelData[index].quantity = parseFloat(document.getElementById('editExcelQty').value) || 0;
-    uploadedExcelData[index].retailValue = parseFloat(document.getElementById('editExcelRetailValue').value) || 0;
-    uploadedExcelData[index].discPct = parseFloat(document.getElementById('editExcelDiscPct').value) || 0;
-    uploadedExcelData[index].discount = parseFloat(document.getElementById('editExcelDiscount').value) || 0;
-    uploadedExcelData[index].exValue = parseFloat(document.getElementById('editExcelExValue').value) || 0;
-    uploadedExcelData[index].salesTax = parseFloat(document.getElementById('editExcelSalesTax').value) || 0;
-    uploadedExcelData[index].ghPercent = parseFloat(document.getElementById('editExcelGhPct').value) || 0;
-    uploadedExcelData[index].ghAmount = parseFloat(document.getElementById('editExcelGhAmount').value) || 0;
-    uploadedExcelData[index].inclusiveValue = parseFloat(document.getElementById('editExcelInclusiveValue').value) || 0;
+    const invoice = uploadedExcelData[invIndex];
+    const item = (invoice.items && invoice.items[itemIndex]) ? invoice.items[itemIndex] : invoice;
+    if (!item) return;
+
+    if (document.getElementById('editExcelInvNo')) {
+        invoice.invoiceNo = document.getElementById('editExcelInvNo').value.trim();
+    }
+    invoice.cnic = document.getElementById('editExcelCnic').value.trim();
+    invoice.name = document.getElementById('editExcelName').value.trim();
+    invoice.invoiceDate = document.getElementById('editExcelDate').value.trim();
+
+    item.productName = document.getElementById('editExcelProductName').value;
+    item.hsCode = document.getElementById('editExcelHsCode').value;
+    item.uoM = document.getElementById('editExcelUom').value.trim();
+    item.price = parseFloat(document.getElementById('editExcelPrice').value) || 0;
+    item.quantity = parseFloat(document.getElementById('editExcelQty').value) || 0;
+    item.retailValue = parseFloat(document.getElementById('editExcelRetailValue').value) || 0;
+    item.discPct = parseFloat(document.getElementById('editExcelDiscPct').value) || 0;
+    item.discount = parseFloat(document.getElementById('editExcelDiscount').value) || 0;
+    item.exValue = parseFloat(document.getElementById('editExcelExValue').value) || 0;
+    item.salesTax = parseFloat(document.getElementById('editExcelSalesTax').value) || 0;
+    item.ghPercent = parseFloat(document.getElementById('editExcelGhPct').value) || 0;
+    item.ghAmount = parseFloat(document.getElementById('editExcelGhAmount').value) || 0;
+    item.inclusiveValue = parseFloat(document.getElementById('editExcelInclusiveValue').value) || 0;
 
     // Reset error if valid UOM was filled
-    if (uploadedExcelData[index].uoM && uploadedExcelData[index].status === 'error' && (uploadedExcelData[index].error || '').toLowerCase().includes('uom')) {
-        uploadedExcelData[index].status = 'ready';
-        uploadedExcelData[index].error = null;
+    if (item.uoM) {
+        item.status = 'ready';
+        item.error = null;
+    }
+    const hasInvalid = (invoice.items || []).some(it => !it.uoM);
+    if (!hasInvalid && invoice.status === 'error' && (invoice.error || '').toLowerCase().includes('uom')) {
+        invoice.status = 'ready';
+        invoice.error = null;
     }
 
     closeEditExcelModal();
@@ -4872,18 +5005,20 @@ function clearUploadedExcelData() {
 }
 
 async function generateExcelInvoiceFbr(index) {
-    const row = uploadedExcelData[index];
-    if (!row) return;
+    const invoice = uploadedExcelData[index];
+    if (!invoice) return;
 
-    if (!row.uoM) {
-        row.status = 'error';
-        row.error = 'Valid UOM is required before generating invoice.';
+    // Validate that all items have a valid UOM
+    const invalidItem = (invoice.items || []).find(item => !item.uoM);
+    if (invalidItem) {
+        invoice.status = 'error';
+        invoice.error = `Valid UOM is required for item "${invalidItem.productName || invalidItem.hsCode}".`;
         renderUploadedExcelTable();
         return;
     }
 
-    row.status = 'submitting';
-    row.error = null;
+    invoice.status = 'submitting';
+    invoice.error = null;
     renderUploadedExcelTable();
 
     const sellerNTN = document.getElementById('sellerNTNCNIC')?.value || window.appData?.user?.cinc_ntn || '';
@@ -4906,7 +5041,7 @@ async function generateExcelInvoiceFbr(index) {
 
     // Determine buyer registration type from FBR API if cnic is provided
     let buyerRegType = 'Unregistered';
-    if (row.cnic) {
+    if (invoice.cnic) {
         try {
             const regRes = await fetch(`${API_BASE}/api/fbr/registration-type`, {
                 method: 'POST',
@@ -4915,7 +5050,7 @@ async function generateExcelInvoiceFbr(index) {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': CSRF_TOKEN
                 },
-                body: JSON.stringify({ registration_no: row.cnic })
+                body: JSON.stringify({ registration_no: invoice.cnic })
             });
             const regJson = await regRes.json();
             if (regJson.success && regJson.data?.registration_type) {
@@ -4923,7 +5058,7 @@ async function generateExcelInvoiceFbr(index) {
                 buyerRegType = rt.charAt(0).toUpperCase() + rt.slice(1).toLowerCase();
             }
         } catch (e) {
-            console.warn('Could not fetch registration type for', row.cnic, e);
+            console.warn('Could not fetch registration type for', invoice.cnic, e);
         }
     }
 
@@ -4932,31 +5067,30 @@ async function generateExcelInvoiceFbr(index) {
         sellerBusinessName: sellerName,
         sellerProvince: sellerProvince,
         sellerAddress: sellerAddress,
-        buyerNTNCNIC: row.cnic,
-        buyerBusinessName: row.name,
+        buyerNTNCNIC: invoice.cnic,
+        buyerBusinessName: invoice.name,
         buyerProvince: sellerProvince,
         buyerAddress: 'N/A',
         buyerRegistrationType: buyerRegType,
         invoiceType: 'Sale Invoice',
-        invoiceDate: row.invoiceDate || new Date().toISOString().split('T')[0],
+        invoiceDate: invoice.invoiceDate || new Date().toISOString().split('T')[0],
+        invoiceRefNo: invoice.invoiceNo || '',
         scenarioId: '1',
-        items: [
-            {
-                productDescription: row.productName || 'Plastic Articles',
-                hsCode: row.hsCode || '3926.1000',
-                quantity: row.quantity,
-                uoM: row.uoM,
-                saleType: thirdScheduleDesc,
-                rate: '18%',
-                valueSalesExcludingST: row.exValue,
-                salesTaxApplicable: row.salesTax,
-                fixedNotifiedValueOrRetailPrice: row.retailValue,
-                discount: row.discount,
-                furtherTax: 0,
-                extraTax: '',
-                totalValues: row.inclusiveValue
-            }
-        ]
+        items: (invoice.items || []).map(item => ({
+            productDescription: item.productName || 'Plastic Articles',
+            hsCode: item.hsCode || '3926.1000',
+            quantity: item.quantity,
+            uoM: item.uoM,
+            saleType: thirdScheduleDesc,
+            rate: '18%',
+            valueSalesExcludingST: item.exValue,
+            salesTaxApplicable: item.salesTax,
+            fixedNotifiedValueOrRetailPrice: item.retailValue,
+            discount: item.discount,
+            furtherTax: 0,
+            extraTax: '',
+            totalValues: item.inclusiveValue
+        }))
     };
 
     try {
@@ -4975,15 +5109,15 @@ async function generateExcelInvoiceFbr(index) {
         const result = JSON.parse(cleanText);
 
         if (result.success) {
-            row.status = 'success';
-            row.fbrInvoiceNo = result.data?.invoiceNumber || result.invoiceNumber || 'Submitted';
+            invoice.status = 'success';
+            invoice.fbrInvoiceNo = result.data?.invoiceNumber || result.invoiceNumber || 'Submitted';
         } else {
-            row.status = 'error';
-            row.error = typeof result.message === 'object' ? JSON.stringify(result.message) : (result.message || 'FBR Submission Failed');
+            invoice.status = 'error';
+            invoice.error = typeof result.message === 'object' ? JSON.stringify(result.message) : (result.message || 'FBR Submission Failed');
         }
     } catch (err) {
-        row.status = 'error';
-        row.error = err.message || 'Network error';
+        invoice.status = 'error';
+        invoice.error = err.message || 'Network error';
     }
 
     renderUploadedExcelTable();
@@ -4999,8 +5133,8 @@ async function generateAllExcelInvoicesFbr() {
     }
 
     const pendingIndices = [];
-    uploadedExcelData.forEach((row, idx) => {
-        if (row.status !== 'success') {
+    uploadedExcelData.forEach((inv, idx) => {
+        if (inv.status !== 'success') {
             pendingIndices.push(idx);
         }
     });
@@ -5048,6 +5182,7 @@ function downloadSampleExcel() {
 
     const headers = [
         'Sr No',
+        'Invoice No',
         'CNIC',
         'Buyer Name',
         'Date',
@@ -5068,8 +5203,9 @@ function downloadSampleExcel() {
 
     const today = new Date().toISOString().split('T')[0];
     const sampleRows = [
-        [1, '3520112345671', 'ABC Traders', today, 500, 10, '3926.1000', 'Plastic Articles', 5000, 0, 0, 5000, 900, 5900, '', 0, 0],
-        [2, '4210112345672', 'XYZ Enterprises', today, 1000, 5, '7615.1000', 'Aluminium Utensils', 5000, 5, 250, 4750, 855, 5605, '', 0.1, 5.61]
+        [1, 'INV-101', '3520112345671', 'ABC Traders', today, 500, 10, '3926.1000', 'Plastic Articles', 5000, 0, 0, 5000, 900, 5900, '', 0, 0],
+        [2, 'INV-101', '3520112345671', 'ABC Traders', today, 200, 5, '3923.3000', 'Plastic Bottles', 1000, 0, 0, 1000, 180, 1180, '', 0, 0],
+        [3, 'INV-102', '4210112345672', 'XYZ Enterprises', today, 1000, 5, '7615.1000', 'Aluminium Utensils', 5000, 5, 250, 4750, 855, 5605, '', 0.1, 5.61]
     ];
 
     const wsData = [headers, ...sampleRows];
@@ -5077,6 +5213,7 @@ function downloadSampleExcel() {
 
     ws['!cols'] = [
         { wch: 8 },  // Sr No
+        { wch: 14 }, // Invoice No
         { wch: 16 }, // CNIC
         { wch: 22 }, // Buyer Name
         { wch: 12 }, // Date
