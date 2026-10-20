@@ -33,12 +33,23 @@ class UserManagement extends Controller
             });
         }
 
+        $allUsers = (clone $query)->with('company')->latest()->get();
+        $pdfUsers = $allUsers->map(function ($u, $idx) {
+            return [
+                $idx + 1,
+                $u->name ?? '-',
+                $u->email ?? '-',
+                $u->business_name ?? '-',
+                $u->company ? $u->company->cname : '-'
+            ];
+        })->values();
+
         $users = $query->latest()->paginate(10);
 
         // Companies for dropdown
         $company = Company::all();
 
-        return view('User.index', compact('users', 'company'));
+        return view('User.index', compact('users', 'company', 'allUsers', 'pdfUsers'));
     }
 
     public function create()

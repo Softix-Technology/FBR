@@ -176,6 +176,12 @@
                                 </div>
                                 <div class="flex flex-col items-end">
                                     <div class="flex items-center space-x-2">
+                                         <button type="button" onclick="downloadSampleExcel()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-xs uppercase tracking-widest text-white transition shadow-sm hover:opacity-90" style="background-color: #2563eb !important; border: 1px solid #1d4ed8 !important;" title="Download sample Excel template">
+                                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke: #ffffff !important;">
+                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                             </svg>
+                                             <span style="color: #ffffff !important; font-weight: 600;">Download Sample</span>
+                                         </button>
                                          <button type="button" id="uploadExcelBtn" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md font-semibold text-xs uppercase tracking-widest transition shadow-sm hover:opacity-90" style="background-color: #059669 !important; color: #ffffff !important;" title="Upload Excel - Supports 3rd Schedule Invoices Only">
                                              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke: #ffffff !important;">
                                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
@@ -306,9 +312,6 @@
                                 <span id="uploadedItemCountBadge" class="ml-3 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">0 rows</span>
                             </div>
                             <div class="flex items-center space-x-3">
-                                <button type="button" onclick="downloadSampleExcel()" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold text-white shadow-sm transition hover:opacity-90" style="background-color: #2563eb !important; border: 1px solid #1d4ed8 !important;" title="Download sample Excel template">
-                                    📥 Download Sample
-                                </button>
                                 <button type="button" id="generateAllExcelBtn" onclick="generateAllExcelInvoicesFbr()" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold text-white shadow-sm transition disabled:opacity-50" style="background-color: #059669 !important; border: 1px solid #047857 !important;" title="Generate all pending invoices on FBR">
                                     🚀 Generate All
                                 </button>
@@ -318,16 +321,18 @@
                             </div>
                         </div>
 
-                        <div class="overflow-x-auto">
+                        <div class="overflow-x-auto min-h-[240px] pb-28">
                             <table id="uploadedExcelTable" class="min-w-full divide-y divide-gray-200 text-xs border border-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">#</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Inv #</th>
-                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">CNIC</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Reg Type</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">CNIC / NTN</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Buyer Name</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Address</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Inv Date</th>
-                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Product Name</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Product Description</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">HS Code</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">UOM</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Price</th>
@@ -337,8 +342,9 @@
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Discount</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Ex Value</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Sales Tax</th>
-                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">G/H (%)</th>
-                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">G/H Amount</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Further Tax</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">236 G&H (%)</th>
+                                        <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">236 G&H Amount</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Inclusive</th>
                                         <th class="px-3 py-2 text-left font-medium text-gray-500 uppercase">Status / Error</th>
                                         <th class="px-3 py-2 text-center font-medium text-gray-500 uppercase">Actions</th>
@@ -372,15 +378,26 @@
                                             <input type="text" id="editExcelDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-700">CNIC</label>
-                                            <input type="text" id="editExcelCnic" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                            <label class="block text-xs font-medium text-gray-700">CNIC / NTN</label>
+                                            <input type="text" id="editExcelCnic" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm" placeholder="13-digit CNIC or 7-digit NTN">
                                         </div>
                                         <div>
+                                            <label class="block text-xs font-medium text-gray-700">Registration Type</label>
+                                            <select id="editExcelRegType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                                <option value="Unregistered">Unregistered</option>
+                                                <option value="Registered">Registered</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-span-2">
                                             <label class="block text-xs font-medium text-gray-700">Buyer Name</label>
                                             <input type="text" id="editExcelName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                         </div>
+                                        <div class="col-span-2">
+                                            <label class="block text-xs font-medium text-gray-700">Buyer Address</label>
+                                            <input type="text" id="editExcelAddress" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm" placeholder="e.g. Lahore, Pakistan">
+                                        </div>
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-700">Product Name</label>
+                                            <label class="block text-xs font-medium text-gray-700">Product Description</label>
                                             <input type="text" id="editExcelProductName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                         </div>
                                         <div>
@@ -420,11 +437,15 @@
                                             <input type="number" step="0.01" id="editExcelSalesTax" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-700">G/H (%)</label>
+                                            <label class="block text-xs font-medium text-gray-700">Further Tax</label>
+                                            <input type="number" step="0.01" id="editExcelFurtherTax" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-700">236 G&H (%)</label>
                                             <input type="number" step="0.01" id="editExcelGhPct" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-medium text-gray-700">G/H Amount</label>
+                                            <label class="block text-xs font-medium text-gray-700">236 G&H Amount</label>
                                             <input type="number" step="0.01" id="editExcelGhAmount" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
                                         </div>
                                         <div class="col-span-2">
@@ -4612,22 +4633,25 @@ function handleExcelUpload(e) {
             }
 
             const invNoCol = findCol(['invoice no', 'invoice number', 'invoice #', 'inv no', 'inv #', 'bill no', 'bill number'], -1);
-            const cnicCol = findCol(['cnic', 'ntn'], 1);
-            const nameCol = findCol(['buyer', 'customer', 'name'], 2);
+            const cnicCol = findCol(['cnic / ntn', 'cnic/ntn', 'ntn/cnic', 'cnic', 'ntn'], 1);
+            const regTypeCol = findCol(['reg type', 'registration type', 'reg_type', 'buyer type'], -1);
+            const nameCol = findCol(['buyer name', 'buyer', 'customer', 'name'], 2);
+            const addressCol = findCol(['address', 'buyer address', 'customer address'], -1);
             const dateCol = findCol(['date'], 3);
             const priceCol = findCol(['price', 'rate'], 4);
             const qtyCol = findCol(['qty', 'quantity'], 5);
             const hsCol = findCol(['hs'], 6);
-            const prodCol = findCol(['product', 'desc'], 7);
+            const prodCol = findCol(['product description', 'product desc', 'product', 'desc'], 7);
             const retailCol = findCol(['retail'], 8);
             const discPctCol = findCol([/disc.*%/, 'disc %', 'discount %'], 9);
             const discCol = findCol(['discount', 'disc'], 10);
             const exValCol = findCol(['ex value', 'excl', 'excluding'], 11);
-            const salesTaxCol = findCol(['sales tax', 'tax'], 12);
+            const salesTaxCol = findCol(['sales tax', 'tax sales', 'salestax', /^tax$/], 12);
+            const furtherTaxCol = findCol(['further tax', 'furthertax', 'further_tax', 'ftax', 'further'], -1);
             const inclusiveCol = findCol(['inclusive', 'total value', 'total'], 13);
             const uomCol = findCol(['unit of measure', 'unit of measurement', /^unit$/i, 'uom'], -1);
-            const ghPctCol = findCol([/g[\/\s]?h.*%/, /g[\/\s]?h.*pct/], -1);
-            const ghAmtCol = findCol([/g[\/\s]?h.*(amount|amt|val)/, /236/], -1);
+            const ghPctCol = findCol(['236 g&h %', '236 g/h %', '236 gh %', /236.*g.*h.*%/, /g[\/\s&]?h.*%/], -1);
+            const ghAmtCol = findCol(['236 g&h amount', '236 g/h amount', '236 gh amount', /236.*g.*h.*(amount|amt|val)/, /g[\/\s&]?h.*(amount|amt|val)/, /236/], -1);
 
             uploadedExcelData = [];
             const invoicesMap = new Map();
@@ -4640,6 +4664,12 @@ function handleExcelUpload(e) {
                 const rawInvNo = (invNoCol !== -1 && r[invNoCol] !== undefined && r[invNoCol] !== null) ? String(r[invNoCol]).trim() : '';
                 const cnicVal = cnicCol !== -1 ? r[cnicCol] : r[1];
                 const nameVal = nameCol !== -1 ? r[nameCol] : r[2];
+                const addressVal = (addressCol !== -1 && r[addressCol] !== undefined && r[addressCol] !== null) ? String(r[addressCol]).trim() : '';
+                const rawRegType = (regTypeCol !== -1 && r[regTypeCol] !== undefined && r[regTypeCol] !== null) ? String(r[regTypeCol]).trim() : '';
+                let detectedRegType = 'Unregistered';
+                if (rawRegType) {
+                    detectedRegType = (rawRegType.toLowerCase().includes('reg') && !rawRegType.toLowerCase().includes('unreg')) ? 'Registered' : 'Unregistered';
+                }
 
                 // If no CNIC, Name, and no Invoice No, skip empty row
                 if (!cnicVal && !nameVal && !rawInvNo) continue;
@@ -4662,6 +4692,7 @@ function handleExcelUpload(e) {
                 const discount = parseFloat(discCol !== -1 ? r[discCol] : r[10]) || 0;
                 const exVal = parseFloat(exValCol !== -1 ? r[exValCol] : r[11]) || 0;
                 const salesTax = parseFloat(salesTaxCol !== -1 ? r[salesTaxCol] : r[12]) || 0;
+                const furtherTax = (furtherTaxCol !== -1 && r[furtherTaxCol] !== undefined && r[furtherTaxCol] !== null && String(r[furtherTaxCol]).trim() !== '') ? (parseFloat(r[furtherTaxCol]) || 0) : 0;
                 const inclusiveVal = parseFloat(inclusiveCol !== -1 ? r[inclusiveCol] : r[13]) || 0;
 
                 // UOM column (check header match, or index 14 if provided)
@@ -4713,6 +4744,7 @@ function handleExcelUpload(e) {
                     discount: discount,
                     exValue: exVal,
                     salesTax: salesTax,
+                    furtherTax: furtherTax,
                     ghPercent: ghPct,
                     ghAmount: ghAmt,
                     inclusiveValue: inclusiveVal,
@@ -4727,6 +4759,8 @@ function handleExcelUpload(e) {
                         invoiceNo: rawInvNo,
                         cnic: String(cnicVal || '').trim(),
                         name: String(nameVal || '').trim(),
+                        buyerAddress: addressVal || '',
+                        registrationType: detectedRegType,
                         invoiceDate: formattedDate,
                         status: 'ready',
                         error: null,
@@ -4738,12 +4772,39 @@ function handleExcelUpload(e) {
                     // Inherit header fields if missing on subsequent item rows
                     if (!existingInv.cnic && cnicVal) existingInv.cnic = String(cnicVal).trim();
                     if (!existingInv.name && nameVal) existingInv.name = String(nameVal).trim();
+                    if (!existingInv.buyerAddress && addressVal) existingInv.buyerAddress = addressVal;
+                    if (!existingInv.registrationType && detectedRegType) existingInv.registrationType = detectedRegType;
                     if (!existingInv.invoiceDate && formattedDate) existingInv.invoiceDate = formattedDate;
                     existingInv.items.push(itemData);
                 }
             }
 
             uploadedExcelData = Array.from(invoicesMap.values());
+
+            // Auto-check local database for buyer registration type and details if available
+            for (const inv of uploadedExcelData) {
+                const rawBuyerId = String(inv.cnic || '').trim().replace(/[^0-9]/g, '');
+                const cleanBuyerId = rawBuyerId.length === 8 ? rawBuyerId.substring(0, 7) : rawBuyerId;
+                if (cleanBuyerId) {
+                    try {
+                        const bRes = await fetch(`${API_BASE}/premiertax/api/buyers/search?ntn=${encodeURIComponent(cleanBuyerId)}&limit=1`, {
+                            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN }
+                        });
+                        const bJson = await bRes.json();
+                        if (bJson.success && bJson.data && bJson.data.length > 0) {
+                            const found = bJson.data[0];
+                            if (found.registration_type && (!inv.registrationType || inv.registrationType === 'Unregistered')) {
+                                inv.registrationType = found.registration_type;
+                            }
+                            if (found.province) inv.buyerProvince = found.province;
+                            if (found.address) inv.buyerAddress = found.address;
+                            if (!inv.name && found.business_name) inv.name = found.business_name;
+                        }
+                    } catch (e) {
+                        // ignore network error
+                    }
+                }
+            }
 
             // Validate / auto-fetch exact UOM for every item of every invoice
             for (const inv of uploadedExcelData) {
@@ -4795,6 +4856,7 @@ function renderUploadedExcelTable() {
     const totalItems = uploadedExcelData.reduce((sum, inv) => sum + (inv.items ? inv.items.length : 0), 0);
     badge.textContent = `${uploadedExcelData.length} invoice${uploadedExcelData.length === 1 ? '' : 's'} (${totalItems} item${totalItems === 1 ? '' : 's'})`;
 
+    const fmt2 = (val) => (parseFloat(val) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     let html = '';
     uploadedExcelData.forEach((invoice, invIndex) => {
         const items = invoice.items || [];
@@ -4828,10 +4890,58 @@ function renderUploadedExcelTable() {
             const isFirst = itemIndex === 0;
             const borderTopClass = isFirst && invIndex > 0 ? 'border-t-2 border-gray-300' : '';
 
+            // Disc % items (0% to 50%)
+            const currentDisc = parseFloat(item.discPct) || 0;
+            let discItemsHtml = '';
+            for (let d = 0; d <= 50; d++) {
+                const isSel = Math.abs(currentDisc - d) < 0.001;
+                discItemsHtml += `
+                    <div onclick="selectUploadedDiscPct(${invIndex}, ${itemIndex}, ${d})" class="px-2.5 py-1 text-xs cursor-pointer flex items-center justify-between transition ${isSel ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}">
+                        <span>${d}%</span>
+                        ${isSel ? '<span class="text-indigo-600 text-[10px] font-bold">✓</span>' : ''}
+                    </div>
+                `;
+            }
+            if (currentDisc > 0 && (currentDisc > 50 || !Number.isInteger(currentDisc))) {
+                discItemsHtml += `
+                    <div onclick="selectUploadedDiscPct(${invIndex}, ${itemIndex}, ${currentDisc})" class="px-2.5 py-1 text-xs cursor-pointer flex items-center justify-between bg-indigo-50 text-indigo-700 font-semibold">
+                        <span>${currentDisc}%</span>
+                        <span class="text-indigo-600 text-[10px] font-bold">✓</span>
+                    </div>
+                `;
+            }
+
+            // 236 G&H % items (0%, 0.1%, 0.5%, 2%, 2.5%)
+            const currentGh = parseFloat(item.ghPercent) || 0;
+            const ghRates = [0, 0.1, 0.5, 2, 2.5];
+            let ghItemsHtml = '';
+            let matchedGh = false;
+            ghRates.forEach(rate => {
+                const isSel = Math.abs(currentGh - rate) < 0.0001;
+                if (isSel) matchedGh = true;
+                ghItemsHtml += `
+                    <div onclick="selectUploadedGhPct(${invIndex}, ${itemIndex}, ${rate})" class="px-2.5 py-1 text-xs cursor-pointer flex items-center justify-between transition ${isSel ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-700 hover:bg-gray-100'}">
+                        <span>${rate}%</span>
+                        ${isSel ? '<span class="text-indigo-600 text-[10px] font-bold">✓</span>' : ''}
+                    </div>
+                `;
+            });
+            if (!matchedGh && currentGh > 0) {
+                ghItemsHtml += `
+                    <div onclick="selectUploadedGhPct(${invIndex}, ${itemIndex}, ${currentGh})" class="px-2.5 py-1 text-xs cursor-pointer flex items-center justify-between bg-indigo-50 text-indigo-700 font-semibold">
+                        <span>${currentGh}%</span>
+                        <span class="text-indigo-600 text-[10px] font-bold">✓</span>
+                    </div>
+                `;
+            }
+
             html += `<tr class="hover:bg-gray-50 ${borderTopClass}">`;
 
             // Common header columns only rendered on first item row with rowspan
             if (isFirst) {
+                const regType = (invoice.registrationType || 'Unregistered').trim();
+                const isReg = regType.toLowerCase().startsWith('reg') && !regType.toLowerCase().includes('unreg');
+
                 html += `
                     <td class="px-3 py-2 text-center font-medium text-gray-700 bg-gray-50/50 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
                         ${invIndex + 1}
@@ -4840,11 +4950,20 @@ function renderUploadedExcelTable() {
                         ${invoice.invoiceNo ? `<span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold text-xs">${invoice.invoiceNo}</span>` : '<span class="text-gray-400 font-mono">-</span>'}
                         ${hasMultiple ? `<div class="text-[11px] text-indigo-600 font-semibold mt-1">📦 ${rowSpan} Items</div>` : ''}
                     </td>
-                    <td class="px-3 py-2 font-mono bg-gray-50/50 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
-                        ${invoice.cnic || '-'}
+                    <td class="px-3 py-2 whitespace-nowrap bg-gray-50/50 align-top text-center" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
+                        <select onchange="updateUploadedRegistrationType(${invIndex}, this.value)" class="text-[10px] font-bold rounded-full py-0.5 px-2 border cursor-pointer shadow-none focus:outline-none focus:ring-1 transition ${isReg ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 focus:ring-emerald-400' : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 focus:ring-gray-400'}">
+                            <option value="Unregistered" ${!isReg ? 'selected' : ''}>⚪ Unregistered</option>
+                            <option value="Registered" ${isReg ? 'selected' : ''}>🟢 Registered</option>
+                        </select>
+                    </td>
+                    <td class="px-3 py-2 font-mono text-gray-800 bg-gray-50/50 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
+                        <div>${invoice.cnic || '-'}</div>
                     </td>
                     <td class="px-3 py-2 font-medium text-gray-900 bg-gray-50/50 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
                         ${invoice.name || '-'}
+                    </td>
+                    <td class="px-3 py-2 text-gray-600 bg-gray-50/50 align-top max-w-[150px] truncate" title="${invoice.buyerAddress || ''}" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
+                        ${invoice.buyerAddress || '-'}
                     </td>
                     <td class="px-3 py-2 whitespace-nowrap bg-gray-50/50 align-top" ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ''}>
                         ${invoice.invoiceDate || '-'}
@@ -4867,15 +4986,36 @@ function renderUploadedExcelTable() {
                     ${item.uoM ? `<span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 font-medium">${item.uoM}</span>` : '<span class="text-red-500 font-semibold">Missing</span>'}
                 </td>
                 <td class="px-3 py-2 text-right">${(parseFloat(item.price) || 0).toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${(parseFloat(item.quantity) || 0).toFixed(3)}</td>
-                <td class="px-3 py-2 text-right">${(parseFloat(item.retailValue) || 0).toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${item.discPct || 0}%</td>
-                <td class="px-3 py-2 text-right">${(parseFloat(item.discount) || 0).toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${(parseFloat(item.exValue) || 0).toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${(parseFloat(item.salesTax) || 0).toLocaleString()}</td>
-                <td class="px-3 py-2 text-right">${(item.ghPercent || 0)}%</td>
-                <td class="px-3 py-2 text-right">${(item.ghAmount || 0).toLocaleString()}</td>
-                <td class="px-3 py-2 text-right font-semibold text-gray-900">${(parseFloat(item.inclusiveValue) || 0).toLocaleString()}</td>
+                <td class="px-3 py-2 text-right">${fmt2(item.quantity)}</td>
+                <td class="px-3 py-2 text-right">${fmt2(item.retailValue)}</td>
+                <td class="px-2 py-2 text-right whitespace-nowrap relative">
+                    <div class="relative inline-block text-left custom-excel-dropdown-wrap">
+                        <button type="button" onclick="toggleCustomDropdown('discDrop_${invIndex}_${itemIndex}', event)" class="inline-flex items-center justify-between w-14 px-1.5 py-0.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 focus:outline-none">
+                            <span>${currentDisc}%</span>
+                            <svg class="w-3 h-3 text-gray-400 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div id="discDrop_${invIndex}_${itemIndex}" class="custom-excel-dropdown-menu hidden absolute right-0 z-50 mt-1 w-20 bg-white border border-gray-200 rounded-md shadow-lg overflow-y-auto text-left" style="max-height: 150px;">
+                            ${discItemsHtml}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-3 py-2 text-right">${fmt2(item.discount)}</td>
+                <td class="px-3 py-2 text-right">${fmt2(item.exValue)}</td>
+                <td class="px-3 py-2 text-right">${fmt2(item.salesTax)}</td>
+                <td class="px-3 py-2 text-right">${fmt2(item.furtherTax)}</td>
+                <td class="px-2 py-2 text-right whitespace-nowrap relative">
+                    <div class="relative inline-block text-left custom-excel-dropdown-wrap">
+                        <button type="button" onclick="toggleCustomDropdown('ghDrop_${invIndex}_${itemIndex}', event)" class="inline-flex items-center justify-between w-14 px-1.5 py-0.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50 focus:outline-none">
+                            <span>${currentGh}%</span>
+                            <svg class="w-3 h-3 text-gray-400 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div id="ghDrop_${invIndex}_${itemIndex}" class="custom-excel-dropdown-menu hidden absolute right-0 z-50 mt-1 w-20 bg-white border border-gray-200 rounded-md shadow-lg overflow-y-auto text-left" style="max-height: 140px;">
+                            ${ghItemsHtml}
+                        </div>
+                    </div>
+                </td>
+                <td class="px-3 py-2 text-right">${fmt2(item.ghAmount)}</td>
+                <td class="px-3 py-2 text-right font-semibold text-gray-900">${fmt2(item.inclusiveValue)}</td>
             `;
 
             // Common status and actions columns only rendered on first item row with rowspan
@@ -4894,7 +5034,7 @@ function renderUploadedExcelTable() {
                             🚀 Generate
                         </button>
                         ${hasMultiple ? `
-                            <div class="text-[11px] font-semibold text-gray-800 mt-1">Total: ${totalInc.toLocaleString()}</div>
+                            <div class="text-[11px] font-semibold text-gray-800 mt-1">Total: ${fmt2(totalInc)}</div>
                         ` : ''}
                         ${(invoice.status === 'error' && invoice.error) ? `<div class="text-xs text-red-600 font-medium mt-1 max-w-xs text-center whitespace-normal break-words" title="${invoice.error}">⚠️ ${invoice.error}</div>` : ''}
                     </td>
@@ -4907,6 +5047,50 @@ function renderUploadedExcelTable() {
 
     tbody.innerHTML = html;
 }
+
+function updateUploadedRegistrationType(invIndex, val) {
+    if (uploadedExcelData[invIndex]) {
+        uploadedExcelData[invIndex].registrationType = val;
+        renderUploadedExcelTable();
+    }
+}
+
+function selectUploadedDiscPct(invIndex, itemIndex, val) {
+    if (uploadedExcelData[invIndex] && uploadedExcelData[invIndex].items && uploadedExcelData[invIndex].items[itemIndex]) {
+        uploadedExcelData[invIndex].items[itemIndex].discPct = parseFloat(val) || 0;
+        renderUploadedExcelTable();
+    }
+}
+
+function selectUploadedGhPct(invIndex, itemIndex, val) {
+    if (uploadedExcelData[invIndex] && uploadedExcelData[invIndex].items && uploadedExcelData[invIndex].items[itemIndex]) {
+        const item = uploadedExcelData[invIndex].items[itemIndex];
+        item.ghPercent = parseFloat(val) || 0;
+        if (item.ghPercent > 0) {
+            item.ghAmount = Math.round(((parseFloat(item.exValue) || 0) + (parseFloat(item.salesTax) || 0)) * item.ghPercent / 100 * 100) / 100;
+        } else {
+            item.ghAmount = 0;
+        }
+        renderUploadedExcelTable();
+    }
+}
+
+function toggleCustomDropdown(id, evt) {
+    if (evt) evt.stopPropagation();
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isClosed = el.classList.contains('hidden');
+    document.querySelectorAll('.custom-excel-dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+    if (isClosed) {
+        el.classList.remove('hidden');
+    }
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.custom-excel-dropdown-wrap')) {
+        document.querySelectorAll('.custom-excel-dropdown-menu').forEach(menu => menu.classList.add('hidden'));
+    }
+});
 
 function openEditExcelModal(invIndex, itemIndex = 0) {
     const invoice = uploadedExcelData[invIndex];
@@ -4928,7 +5112,13 @@ function openEditExcelModal(invIndex, itemIndex = 0) {
         document.getElementById('editExcelInvNo').value = invoice.invoiceNo || '';
     }
     document.getElementById('editExcelCnic').value = invoice.cnic || '';
+    if (document.getElementById('editExcelRegType')) {
+        document.getElementById('editExcelRegType').value = invoice.registrationType || 'Unregistered';
+    }
     document.getElementById('editExcelName').value = invoice.name || '';
+    if (document.getElementById('editExcelAddress')) {
+        document.getElementById('editExcelAddress').value = invoice.buyerAddress || '';
+    }
     document.getElementById('editExcelDate').value = invoice.invoiceDate || '';
     document.getElementById('editExcelProductName').value = item.productName || '';
     document.getElementById('editExcelHsCode').value = item.hsCode || '';
@@ -4940,6 +5130,9 @@ function openEditExcelModal(invIndex, itemIndex = 0) {
     document.getElementById('editExcelDiscount').value = item.discount !== undefined ? item.discount : 0;
     document.getElementById('editExcelExValue').value = item.exValue !== undefined ? item.exValue : 0;
     document.getElementById('editExcelSalesTax').value = item.salesTax !== undefined ? item.salesTax : 0;
+    if (document.getElementById('editExcelFurtherTax')) {
+        document.getElementById('editExcelFurtherTax').value = item.furtherTax !== undefined ? item.furtherTax : 0;
+    }
     document.getElementById('editExcelGhPct').value = item.ghPercent || 0;
     document.getElementById('editExcelGhAmount').value = item.ghAmount || 0;
     document.getElementById('editExcelInclusiveValue').value = item.inclusiveValue !== undefined ? item.inclusiveValue : 0;
@@ -4964,7 +5157,13 @@ function saveEditedExcelRow() {
         invoice.invoiceNo = document.getElementById('editExcelInvNo').value.trim();
     }
     invoice.cnic = document.getElementById('editExcelCnic').value.trim();
+    if (document.getElementById('editExcelRegType')) {
+        invoice.registrationType = document.getElementById('editExcelRegType').value;
+    }
     invoice.name = document.getElementById('editExcelName').value.trim();
+    if (document.getElementById('editExcelAddress')) {
+        invoice.buyerAddress = document.getElementById('editExcelAddress').value.trim();
+    }
     invoice.invoiceDate = document.getElementById('editExcelDate').value.trim();
 
     item.productName = document.getElementById('editExcelProductName').value;
@@ -4977,6 +5176,9 @@ function saveEditedExcelRow() {
     item.discount = parseFloat(document.getElementById('editExcelDiscount').value) || 0;
     item.exValue = parseFloat(document.getElementById('editExcelExValue').value) || 0;
     item.salesTax = parseFloat(document.getElementById('editExcelSalesTax').value) || 0;
+    if (document.getElementById('editExcelFurtherTax')) {
+        item.furtherTax = parseFloat(document.getElementById('editExcelFurtherTax').value) || 0;
+    }
     item.ghPercent = parseFloat(document.getElementById('editExcelGhPct').value) || 0;
     item.ghAmount = parseFloat(document.getElementById('editExcelGhAmount').value) || 0;
     item.inclusiveValue = parseFloat(document.getElementById('editExcelInclusiveValue').value) || 0;
@@ -5039,9 +5241,47 @@ async function generateExcelInvoiceFbr(index) {
         thirdScheduleDesc = matchedType.transactioN_DESC;
     }
 
-    // Determine buyer registration type from FBR API if cnic is provided
-    let buyerRegType = 'Unregistered';
-    if (invoice.cnic) {
+    // Determine buyer registration type and clean NTN / CNIC
+    let rawBuyerId = String(invoice.cnic || '').trim().replace(/[^0-9]/g, '');
+    let cleanBuyerNTNCNIC = rawBuyerId;
+    if (cleanBuyerNTNCNIC.length === 8) {
+        cleanBuyerNTNCNIC = cleanBuyerNTNCNIC.substring(0, 7); // Strip 8th check digit for FBR 7-digit NTN requirement
+    }
+
+    let buyerRegType = invoice.registrationType || '';
+    let buyerProvince = invoice.buyerProvince || sellerProvince;
+    let buyerAddress = invoice.buyerAddress || 'N/A';
+    let buyerName = invoice.name || '';
+
+    // 1. Check local database for buyer profile if available
+    if (cleanBuyerNTNCNIC) {
+        try {
+            const buyerSearchRes = await fetch(`${API_BASE}/premiertax/api/buyers/search?ntn=${encodeURIComponent(cleanBuyerNTNCNIC)}&limit=1`, {
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN }
+            });
+            const buyerSearchJson = await buyerSearchRes.json();
+            if (buyerSearchJson.success && buyerSearchJson.data && buyerSearchJson.data.length > 0) {
+                const matchedBuyer = buyerSearchJson.data[0];
+                if (!buyerRegType && matchedBuyer.registration_type) {
+                    buyerRegType = matchedBuyer.registration_type;
+                }
+                if (matchedBuyer.province) {
+                    buyerProvince = matchedBuyer.province;
+                }
+                if (matchedBuyer.address) {
+                    buyerAddress = matchedBuyer.address;
+                }
+                if (!buyerName && matchedBuyer.business_name) {
+                    buyerName = matchedBuyer.business_name;
+                }
+            }
+        } catch (e) {
+            console.warn('Local buyer lookup skipped:', e);
+        }
+    }
+
+    // 2. If still not determined, try FBR registration-type API
+    if (!buyerRegType && cleanBuyerNTNCNIC) {
         try {
             const regRes = await fetch(`${API_BASE}/api/fbr/registration-type`, {
                 method: 'POST',
@@ -5050,7 +5290,7 @@ async function generateExcelInvoiceFbr(index) {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': CSRF_TOKEN
                 },
-                body: JSON.stringify({ registration_no: invoice.cnic })
+                body: JSON.stringify({ registration_no: cleanBuyerNTNCNIC })
             });
             const regJson = await regRes.json();
             if (regJson.success && regJson.data?.registration_type) {
@@ -5058,8 +5298,12 @@ async function generateExcelInvoiceFbr(index) {
                 buyerRegType = rt.charAt(0).toUpperCase() + rt.slice(1).toLowerCase();
             }
         } catch (e) {
-            console.warn('Could not fetch registration type for', invoice.cnic, e);
+            console.warn('Could not fetch registration type for', cleanBuyerNTNCNIC, e);
         }
+    }
+
+    if (!buyerRegType) {
+        buyerRegType = 'Unregistered';
     }
 
     const payload = {
@@ -5067,10 +5311,10 @@ async function generateExcelInvoiceFbr(index) {
         sellerBusinessName: sellerName,
         sellerProvince: sellerProvince,
         sellerAddress: sellerAddress,
-        buyerNTNCNIC: invoice.cnic,
-        buyerBusinessName: invoice.name,
-        buyerProvince: sellerProvince,
-        buyerAddress: 'N/A',
+        buyerNTNCNIC: cleanBuyerNTNCNIC || invoice.cnic,
+        buyerBusinessName: buyerName || (buyerRegType === 'Unregistered' ? 'Unregistered Supplies' : 'Registered Buyer'),
+        buyerProvince: buyerProvince,
+        buyerAddress: buyerAddress,
         buyerRegistrationType: buyerRegType,
         invoiceType: 'Sale Invoice',
         invoiceDate: invoice.invoiceDate || new Date().toISOString().split('T')[0],
@@ -5087,7 +5331,7 @@ async function generateExcelInvoiceFbr(index) {
             salesTaxApplicable: item.salesTax,
             fixedNotifiedValueOrRetailPrice: item.retailValue,
             discount: item.discount,
-            furtherTax: 0,
+            furtherTax: (item.furtherTax !== undefined && item.furtherTax !== null) ? item.furtherTax : 0,
             extraTax: '',
             totalValues: item.inclusiveValue
         }))
@@ -5183,29 +5427,32 @@ function downloadSampleExcel() {
     const headers = [
         'Sr No',
         'Invoice No',
-        'CNIC',
+        'Registration Type',
+        'CNIC / NTN',
         'Buyer Name',
+        'Address',
         'Date',
         'Price',
         'Qty',
         'HS Code',
-        'Product',
+        'Product Description',
         'Retail Value',
         'Disc %',
         'Discount',
         'Ex Value',
         'Sales Tax',
+        'Further Tax',
         'Inclusive Value',
         'UOM',
-        'G/H %',
-        'G/H Amount'
+        '236 G&H %',
+        '236 G&H Amount'
     ];
 
     const today = new Date().toISOString().split('T')[0];
     const sampleRows = [
-        [1, 'INV-101', '3520112345671', 'ABC Traders', today, 500, 10, '3926.1000', 'Plastic Articles', 5000, 0, 0, 5000, 900, 5900, '', 0, 0],
-        [2, 'INV-101', '3520112345671', 'ABC Traders', today, 200, 5, '3923.3000', 'Plastic Bottles', 1000, 0, 0, 1000, 180, 1180, '', 0, 0],
-        [3, 'INV-102', '4210112345672', 'XYZ Enterprises', today, 1000, 5, '7615.1000', 'Aluminium Utensils', 5000, 5, 250, 4750, 855, 5605, '', 0.1, 5.61]
+        [1, 'INV-101', 'Registered', '3520112345671', 'ABC Traders', 'Lahore, Pakistan', today, 500, 10, '3926.1000', 'Plastic Articles', 5000, 0, 0, 5000, 900, 0, 5900, '', 0, 0],
+        [2, 'INV-101', 'Registered', '3520112345671', 'ABC Traders', 'Lahore, Pakistan', today, 200, 5, '3923.3000', 'Plastic Bottles', 1000, 0, 0, 1000, 180, 0, 1180, '', 0, 0],
+        [3, 'INV-102', 'Unregistered', '4210112345672', 'XYZ Enterprises', 'Karachi, Pakistan', today, 1000, 5, '7615.1000', 'Aluminium Utensils', 5000, 5, 250, 4750, 855, 0, 5605, '', 0.1, 5.61]
     ];
 
     const wsData = [headers, ...sampleRows];
@@ -5214,22 +5461,25 @@ function downloadSampleExcel() {
     ws['!cols'] = [
         { wch: 8 },  // Sr No
         { wch: 14 }, // Invoice No
-        { wch: 16 }, // CNIC
+        { wch: 18 }, // Registration Type
+        { wch: 18 }, // CNIC / NTN
         { wch: 22 }, // Buyer Name
+        { wch: 25 }, // Address
         { wch: 12 }, // Date
         { wch: 10 }, // Price
         { wch: 10 }, // Qty
         { wch: 14 }, // HS Code
-        { wch: 22 }, // Product
+        { wch: 24 }, // Product Description
         { wch: 12 }, // Retail Value
         { wch: 8 },  // Disc %
         { wch: 10 }, // Discount
         { wch: 12 }, // Ex Value
         { wch: 12 }, // Sales Tax
+        { wch: 12 }, // Further Tax
         { wch: 15 }, // Inclusive Value
         { wch: 10 }, // UOM
-        { wch: 8 },  // G/H %
-        { wch: 12 }  // G/H Amount
+        { wch: 12 }, // 236 G&H %
+        { wch: 16 }  // 236 G&H Amount
     ];
 
     const wb = XLSX.utils.book_new();
