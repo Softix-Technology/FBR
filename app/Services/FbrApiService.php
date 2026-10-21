@@ -86,6 +86,7 @@ class FbrApiService
                     'discount',
                     'extraTax',
                     'rateValues',
+                    'ghAmount',
                 ];
 
                 foreach ($twoDecimalFields as $field) {

@@ -189,6 +189,14 @@ foreach ($invoiceData['items'] as &$item) {
     if (isset($item['fixedNotifiedValueOrRetailPrice'])) {
         $item['fixedNotifiedValueOrRetailPrice'] = round((float) $item['fixedNotifiedValueOrRetailPrice'], 2);
     }
+
+    if (isset($item['ghAmount'])) {
+        $item['ghAmount'] = round((float) $item['ghAmount'], 2);
+    }
+
+    if (isset($item['ghPercent'])) {
+        $item['ghPercent'] = (float) $item['ghPercent'];
+    }
 }
 unset($item);
 

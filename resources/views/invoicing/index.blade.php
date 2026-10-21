@@ -5339,7 +5339,9 @@ async function generateExcelInvoiceFbr(index) {
             discount: Math.round((parseFloat(item.discount) || 0) * 100) / 100,
             furtherTax: (item.furtherTax !== undefined && item.furtherTax !== null) ? Math.round((parseFloat(item.furtherTax) || 0) * 100) / 100 : 0,
             extraTax: '',
-            totalValues: Math.round((parseFloat(item.inclusiveValue) || 0) * 100) / 100
+            totalValues: Math.round((parseFloat(item.inclusiveValue) || 0) * 100) / 100,
+            ghPercent: (item.ghPercent !== undefined && item.ghPercent !== null) ? (parseFloat(item.ghPercent) || 0) : 0,
+            ghAmount: (item.ghAmount !== undefined && item.ghAmount !== null) ? Math.round((parseFloat(item.ghAmount) || 0) * 100) / 100 : 0
         }))
     };
 
