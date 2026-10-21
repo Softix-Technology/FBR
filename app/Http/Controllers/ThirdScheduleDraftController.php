@@ -481,11 +481,14 @@ class ThirdScheduleDraftController extends Controller
             ];
 
             foreach ($invoiceData['items'] as &$item) {
-                foreach (['quantity', 'totalValues', 'valueSalesExcludingST', 'salesTaxApplicable',
+                if (isset($item['quantity'])) {
+                    $item['quantity'] = round((float) $item['quantity'], 4);
+                }
+                foreach (['totalValues', 'valueSalesExcludingST', 'salesTaxApplicable',
                          'fixedNotifiedValueOrRetailPrice', 'salesTaxWithheldAtSource',
                          'furtherTax', 'fedPayable', 'discount'] as $numField) {
                     if (isset($item[$numField])) {
-                        $item[$numField] = (float) $item[$numField];
+                        $item[$numField] = round((float) $item[$numField], 2);
                     }
                 }
                 if (isset($item['rate'])) {
@@ -597,11 +600,14 @@ class ThirdScheduleDraftController extends Controller
             ];
 
             foreach ($invoiceData['items'] as &$item) {
-                foreach (['quantity', 'totalValues', 'valueSalesExcludingST', 'salesTaxApplicable',
+                if (isset($item['quantity'])) {
+                    $item['quantity'] = round((float) $item['quantity'], 4);
+                }
+                foreach (['totalValues', 'valueSalesExcludingST', 'salesTaxApplicable',
                          'fixedNotifiedValueOrRetailPrice', 'salesTaxWithheldAtSource',
                          'furtherTax', 'fedPayable', 'discount'] as $numField) {
                     if (isset($item[$numField])) {
-                        $item[$numField] = (float) $item[$numField];
+                        $item[$numField] = round((float) $item[$numField], 2);
                     }
                 }
                 if (isset($item['rate'])) {

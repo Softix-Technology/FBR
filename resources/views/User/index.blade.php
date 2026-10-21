@@ -59,6 +59,7 @@
                             <th>Email</th>
                             <th>Business</th>
                             <th>Company</th>
+                            <th>Reference</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -73,6 +74,7 @@
 
                                 <!-- Show Company Name (not ID) -->
                                 <td>{{ $user->company->cname ?? '-' }}</td>
+                                <td>{{ $user->reference ?? '-' }}</td>
 
                                 <td>
                                     <a href="{{ route('users.edit', $user->id) }}"
@@ -92,7 +94,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center">No users found</td>
+                                <td colspan="7" class="text-center">No users found</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -137,10 +139,10 @@ function downloadUsersPdf() {
             doc.setTextColor(100);
             doc.text(`Total Records: ${usersData.length} | Generated: ${new Date().toLocaleDateString()}`, 40, 56);
 
-            // AutoTable with requested columns: #, Name, Email, Business, Company
+            // AutoTable with requested columns: #, Name, Email, Business, Company, Reference
             doc.autoTable({
                 startY: 70,
-                head: [['#', 'Name', 'Email', 'Business', 'Company']],
+                head: [['#', 'Name', 'Email', 'Business', 'Company', 'Reference']],
                 body: usersData,
                 theme: 'striped',
                 headStyles: {
@@ -157,11 +159,12 @@ function downloadUsersPdf() {
                     fillColor: [248, 249, 250]
                 },
                 columnStyles: {
-                    0: { cellWidth: 35, halign: 'center' },
-                    1: { cellWidth: 120 },
-                    2: { cellWidth: 145 },
-                    3: { cellWidth: 125 },
-                    4: { cellWidth: 90 }
+                    0: { cellWidth: 30, halign: 'center' },
+                    1: { cellWidth: 100 },
+                    2: { cellWidth: 120 },
+                    3: { cellWidth: 105 },
+                    4: { cellWidth: 80 },
+                    5: { cellWidth: 80 }
                 },
                 margin: { top: 40, right: 40, bottom: 40, left: 40 },
                 didDrawPage: function(data) {
@@ -192,6 +195,7 @@ function printUsersReport(data) {
             <td>${r[2]}</td>
             <td>${r[3]}</td>
             <td>${r[4]}</td>
+            <td>${r[5] ?? '-'}</td>
         </tr>`;
     });
 
@@ -231,6 +235,7 @@ function printUsersReport(data) {
                         <th>Email</th>
                         <th>Business</th>
                         <th>Company</th>
+                        <th>Reference</th>
                     </tr>
                 </thead>
                 <tbody>${rowsHtml}</tbody>

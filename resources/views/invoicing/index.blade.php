@@ -4684,16 +4684,19 @@ function handleExcelUpload(e) {
                     parsedDiscPct = Math.round(parsedDiscPct * 100 * 1000) / 1000;
                 }
 
-                const price = parseFloat(priceCol !== -1 ? r[priceCol] : r[4]) || 0;
-                const qty = parseFloat(qtyCol !== -1 ? r[qtyCol] : r[5]) || 0;
+                const round2 = (num) => Math.round((parseFloat(num) || 0) * 100) / 100;
+                const round4 = (num) => Math.round((parseFloat(num) || 0) * 10000) / 10000;
+
+                const price = round2(priceCol !== -1 ? r[priceCol] : r[4]);
+                const qty = round4(qtyCol !== -1 ? r[qtyCol] : r[5]);
                 const hsCode = String(hsCol !== -1 ? (r[hsCol] || '') : (r[6] || '')).trim();
                 const productName = String(prodCol !== -1 ? (r[prodCol] || '') : (r[7] || '')).trim();
-                const retailVal = parseFloat(retailCol !== -1 ? r[retailCol] : r[8]) || 0;
-                const discount = parseFloat(discCol !== -1 ? r[discCol] : r[10]) || 0;
-                const exVal = parseFloat(exValCol !== -1 ? r[exValCol] : r[11]) || 0;
-                const salesTax = parseFloat(salesTaxCol !== -1 ? r[salesTaxCol] : r[12]) || 0;
-                const furtherTax = (furtherTaxCol !== -1 && r[furtherTaxCol] !== undefined && r[furtherTaxCol] !== null && String(r[furtherTaxCol]).trim() !== '') ? (parseFloat(r[furtherTaxCol]) || 0) : 0;
-                const inclusiveVal = parseFloat(inclusiveCol !== -1 ? r[inclusiveCol] : r[13]) || 0;
+                const retailVal = round2(retailCol !== -1 ? r[retailCol] : r[8]);
+                const discount = round2(discCol !== -1 ? r[discCol] : r[10]);
+                const exVal = round2(exValCol !== -1 ? r[exValCol] : r[11]);
+                const salesTax = round2(salesTaxCol !== -1 ? r[salesTaxCol] : r[12]);
+                const furtherTax = (furtherTaxCol !== -1 && r[furtherTaxCol] !== undefined && r[furtherTaxCol] !== null && String(r[furtherTaxCol]).trim() !== '') ? round2(r[furtherTaxCol]) : 0;
+                const inclusiveVal = round2(inclusiveCol !== -1 ? r[inclusiveCol] : r[13]);
 
                 // UOM column (check header match, or index 14 if provided)
                 let userUom = '';
@@ -4723,9 +4726,9 @@ function handleExcelUpload(e) {
                 // G/H Amount column
                 let ghAmt = 0;
                 if (ghAmtCol !== -1 && r[ghAmtCol] !== undefined && r[ghAmtCol] !== '') {
-                    ghAmt = parseFloat(r[ghAmtCol]) || 0;
+                    ghAmt = round2(r[ghAmtCol]);
                 } else if (r[16] !== undefined && !isNaN(parseFloat(r[16]))) {
-                    ghAmt = parseFloat(r[16]) || 0;
+                    ghAmt = round2(r[16]);
                 } else if (ghPct > 0) {
                     // Auto-calculate: (exValue + salesTax) * ghPct / 100
                     ghAmt = Math.round((exVal + salesTax) * ghPct / 100 * 100) / 100;
@@ -5169,19 +5172,22 @@ function saveEditedExcelRow() {
     item.productName = document.getElementById('editExcelProductName').value;
     item.hsCode = document.getElementById('editExcelHsCode').value;
     item.uoM = document.getElementById('editExcelUom').value.trim();
-    item.price = parseFloat(document.getElementById('editExcelPrice').value) || 0;
-    item.quantity = parseFloat(document.getElementById('editExcelQty').value) || 0;
-    item.retailValue = parseFloat(document.getElementById('editExcelRetailValue').value) || 0;
+    const round2 = (num) => Math.round((parseFloat(num) || 0) * 100) / 100;
+    const round4 = (num) => Math.round((parseFloat(num) || 0) * 10000) / 10000;
+
+    item.price = round2(document.getElementById('editExcelPrice').value);
+    item.quantity = round4(document.getElementById('editExcelQty').value);
+    item.retailValue = round2(document.getElementById('editExcelRetailValue').value);
     item.discPct = parseFloat(document.getElementById('editExcelDiscPct').value) || 0;
-    item.discount = parseFloat(document.getElementById('editExcelDiscount').value) || 0;
-    item.exValue = parseFloat(document.getElementById('editExcelExValue').value) || 0;
-    item.salesTax = parseFloat(document.getElementById('editExcelSalesTax').value) || 0;
+    item.discount = round2(document.getElementById('editExcelDiscount').value);
+    item.exValue = round2(document.getElementById('editExcelExValue').value);
+    item.salesTax = round2(document.getElementById('editExcelSalesTax').value);
     if (document.getElementById('editExcelFurtherTax')) {
-        item.furtherTax = parseFloat(document.getElementById('editExcelFurtherTax').value) || 0;
+        item.furtherTax = round2(document.getElementById('editExcelFurtherTax').value);
     }
     item.ghPercent = parseFloat(document.getElementById('editExcelGhPct').value) || 0;
-    item.ghAmount = parseFloat(document.getElementById('editExcelGhAmount').value) || 0;
-    item.inclusiveValue = parseFloat(document.getElementById('editExcelInclusiveValue').value) || 0;
+    item.ghAmount = round2(document.getElementById('editExcelGhAmount').value);
+    item.inclusiveValue = round2(document.getElementById('editExcelInclusiveValue').value);
 
     // Reset error if valid UOM was filled
     if (item.uoM) {
@@ -5323,17 +5329,17 @@ async function generateExcelInvoiceFbr(index) {
         items: (invoice.items || []).map(item => ({
             productDescription: item.productName || 'Plastic Articles',
             hsCode: item.hsCode || '3926.1000',
-            quantity: item.quantity,
+            quantity: Math.round((parseFloat(item.quantity) || 0) * 10000) / 10000,
             uoM: item.uoM,
             saleType: thirdScheduleDesc,
             rate: '18%',
-            valueSalesExcludingST: item.exValue,
-            salesTaxApplicable: item.salesTax,
-            fixedNotifiedValueOrRetailPrice: item.retailValue,
-            discount: item.discount,
-            furtherTax: (item.furtherTax !== undefined && item.furtherTax !== null) ? item.furtherTax : 0,
+            valueSalesExcludingST: Math.round((parseFloat(item.exValue) || 0) * 100) / 100,
+            salesTaxApplicable: Math.round((parseFloat(item.salesTax) || 0) * 100) / 100,
+            fixedNotifiedValueOrRetailPrice: Math.round((parseFloat(item.retailValue) || 0) * 100) / 100,
+            discount: Math.round((parseFloat(item.discount) || 0) * 100) / 100,
+            furtherTax: (item.furtherTax !== undefined && item.furtherTax !== null) ? Math.round((parseFloat(item.furtherTax) || 0) * 100) / 100 : 0,
             extraTax: '',
-            totalValues: item.inclusiveValue
+            totalValues: Math.round((parseFloat(item.inclusiveValue) || 0) * 100) / 100
         }))
     };
 

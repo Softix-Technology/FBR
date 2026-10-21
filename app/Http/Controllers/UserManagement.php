@@ -40,7 +40,8 @@ class UserManagement extends Controller
                 $u->name ?? '-',
                 $u->email ?? '-',
                 $u->business_name ?? '-',
-                $u->company ? $u->company->cname : '-'
+                $u->company ? $u->company->cname : '-',
+                $u->reference ?? '-'
             ];
         })->values();
 
@@ -86,6 +87,7 @@ class UserManagement extends Controller
             'business_name' => $request->business_name,
             'province' => $request->province,
             'c_id' => $request->company_id,
+            'reference' => $request->reference,
         ]);
 
         return redirect()->route('users.index')->with('success', 'User created successfully!');
@@ -116,6 +118,7 @@ class UserManagement extends Controller
         $data['strn'] = $request->strn;
         $data['fbr_access_token'] = $request->fbr_access_token;
         $data['c_id'] = $request->company_id;
+        $data['reference'] = $request->reference;
 
         $user->update($data);
 

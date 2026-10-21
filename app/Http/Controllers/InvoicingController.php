@@ -153,36 +153,44 @@ class InvoicingController extends Controller
     }
 
 foreach ($invoiceData['items'] as &$item) {
-
-    // Convert numeric fields to float (FBR expects numbers, not strings)
-    if (isset($item['furtherTax'])) {
-        $item['furtherTax'] = (float) $item['furtherTax'];
-    }
-       if (isset($item['productDescription'])) {
-           $item['productDescription'] = $this->cleanAddress($item['productDescription']);
+    if (isset($item['productDescription'])) {
+        $item['productDescription'] = $this->cleanAddress($item['productDescription']);
     }
 
+    // Convert numeric fields and enforce FBR decimal limits (4 for quantity, 2 for amounts)
+    if (isset($item['quantity'])) {
+        $item['quantity'] = round((float) $item['quantity'], 4);
+    }
 
     if (isset($item['valueSalesExcludingST'])) {
-        $item['valueSalesExcludingST'] = (float) $item['valueSalesExcludingST'];
+        $item['valueSalesExcludingST'] = round((float) $item['valueSalesExcludingST'], 2);
     }
 
     if (isset($item['rateValues'])) {
-        $item['rateValues'] = (float) $item['rateValues'];
+        $item['rateValues'] = round((float) $item['rateValues'], 2);
     }
 
     if (isset($item['totalValues'])) {
-        $item['totalValues'] = (float) $item['totalValues'];
+        $item['totalValues'] = round((float) $item['totalValues'], 2);
     }
 
     if (isset($item['salesTaxApplicable'])) {
-        $item['salesTaxApplicable'] = (float) $item['salesTaxApplicable'];
+        $item['salesTaxApplicable'] = round((float) $item['salesTaxApplicable'], 2);
     }
 
-    if (isset($item['quantity'])) {
-        $item['quantity'] = (float) $item['quantity'];
+    if (isset($item['furtherTax'])) {
+        $item['furtherTax'] = round((float) $item['furtherTax'], 2);
+    }
+
+    if (isset($item['discount'])) {
+        $item['discount'] = round((float) $item['discount'], 2);
+    }
+
+    if (isset($item['fixedNotifiedValueOrRetailPrice'])) {
+        $item['fixedNotifiedValueOrRetailPrice'] = round((float) $item['fixedNotifiedValueOrRetailPrice'], 2);
     }
 }
+unset($item);
 
         // Handle unregistered supplier logic
         $invoiceData = $this->handleUnregisteredSupplier($invoiceData);

@@ -57,11 +57,56 @@ class FbrApiService
     }
 
     /**
+     * Sanitize invoice items to conform strictly to FBR decimal limits:
+     * - Quantity: max 4 decimal places
+     * - Monetary/Tax/Price fields: max 2 decimal places
+     */
+    private function sanitizeInvoiceData(array $invoiceData): array
+    {
+        if (isset($invoiceData['items']) && is_array($invoiceData['items'])) {
+            foreach ($invoiceData['items'] as &$item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+                // Quantity: up to 4 decimal places allowed by FBR
+                if (isset($item['quantity']) && is_numeric($item['quantity'])) {
+                    $item['quantity'] = round((float) $item['quantity'], 4);
+                }
+
+                // Currency & Amount fields: up to 2 decimal places allowed by FBR
+                $twoDecimalFields = [
+                    'totalValues',
+                    'valueSalesExcludingST',
+                    'salesTaxApplicable',
+                    'fixedNotifiedValueOrRetailPrice',
+                    'salesTaxWithheldAtSource',
+                    'furtherTax',
+                    'fedPayable',
+                    'discount',
+                    'extraTax',
+                    'rateValues',
+                ];
+
+                foreach ($twoDecimalFields as $field) {
+                    if (isset($item[$field]) && is_numeric($item[$field])) {
+                        $item[$field] = round((float) $item[$field], 2);
+                    }
+                }
+            }
+            unset($item);
+        }
+
+        return $invoiceData;
+    }
+
+    /**
      * Post invoice data to FBR
      */
     public function postInvoiceData(string $accessToken, array $invoiceData): array
     {
         try {
+            $invoiceData = $this->sanitizeInvoiceData($invoiceData);
             $apiUrl = $this->getEndpoint('post_invoice');
 
             // Log the complete payload and API URL for debugging
@@ -103,6 +148,7 @@ class FbrApiService
     public function validateInvoiceData(string $accessToken, array $invoiceData): array
     {
         try {
+            $invoiceData = $this->sanitizeInvoiceData($invoiceData);
             $apiUrl = $this->getEndpoint('validate_invoice');
 
             // Log the complete payload and API URL for debugging

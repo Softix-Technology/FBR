@@ -83,6 +83,7 @@
                     </div>
                 </div>
 
+                <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Company</label>
                         <select name="company_id" id="" class="form-select select2">
@@ -91,6 +92,11 @@
                                 <option value="{{ $comp->cid }}">{{ $comp->cname }}</option>
                             @endforeach
                         </select>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Reference</label>
+                        <input type="text" name="reference" class="form-control" placeholder="Enter reference">
                     </div>
                 </div>
 

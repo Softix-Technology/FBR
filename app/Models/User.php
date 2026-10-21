@@ -28,6 +28,7 @@ class User extends Authenticatable
         'business_name',
         'province',
         'c_id',
+        'reference',
     ];
 
     protected $hidden = [

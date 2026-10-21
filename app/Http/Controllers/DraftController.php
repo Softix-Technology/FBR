@@ -279,15 +279,19 @@ public function saveDraft(Request $request)
 
             // Normalize items: ensure numeric fields are numbers, remove rateValues
             foreach ($invoiceData['items'] as &$item) {
-                foreach (['quantity', 'totalValues', 'valueSalesExcludingST', 'salesTaxApplicable',
+                if (isset($item['quantity'])) {
+                    $item['quantity'] = round((float) $item['quantity'], 4);
+                }
+                foreach (['totalValues', 'valueSalesExcludingST', 'salesTaxApplicable',
                          'fixedNotifiedValueOrRetailPrice', 'salesTaxWithheldAtSource',
                          'furtherTax', 'fedPayable', 'discount'] as $numField) {
                     if (isset($item[$numField])) {
-                        $item[$numField] = (float) $item[$numField];
+                        $item[$numField] = round((float) $item[$numField], 2);
                     }
                 }
                 unset($item['rateValues']);
             }
+            unset($item);
 
             // Remove scenarioId in production
             if (!$user->use_sandbox) {
@@ -425,15 +429,19 @@ public function saveDraft(Request $request)
 
                 // Normalize items
                 foreach ($invoiceData['items'] as &$item) {
-                    foreach (['quantity', 'totalValues', 'valueSalesExcludingST', 'salesTaxApplicable',
+                    if (isset($item['quantity'])) {
+                        $item['quantity'] = round((float) $item['quantity'], 4);
+                    }
+                    foreach (['totalValues', 'valueSalesExcludingST', 'salesTaxApplicable',
                              'fixedNotifiedValueOrRetailPrice', 'salesTaxWithheldAtSource',
                              'furtherTax', 'fedPayable', 'discount'] as $numField) {
                         if (isset($item[$numField])) {
-                            $item[$numField] = (float) $item[$numField];
+                            $item[$numField] = round((float) $item[$numField], 2);
                         }
                     }
                     unset($item['rateValues']);
                 }
+                unset($item);
 
                 // Remove scenarioId in production
                 if (!$user->use_sandbox) {
