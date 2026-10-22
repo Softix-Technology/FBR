@@ -4786,7 +4786,7 @@ function handleExcelUpload(e) {
 
             // Auto-check local database for buyer registration type and details if available
             for (const inv of uploadedExcelData) {
-                const rawBuyerId = String(inv.cnic || '').trim().replace(/[^0-9]/g, '');
+                const rawBuyerId = String(inv.cnic || '').trim().replace(/[^a-zA-Z0-9]/g, '');
                 const cleanBuyerId = rawBuyerId.length === 8 ? rawBuyerId.substring(0, 7) : rawBuyerId;
                 if (cleanBuyerId) {
                     try {
@@ -5248,7 +5248,7 @@ async function generateExcelInvoiceFbr(index) {
     }
 
     // Determine buyer registration type and clean NTN / CNIC
-    let rawBuyerId = String(invoice.cnic || '').trim().replace(/[^0-9]/g, '');
+    let rawBuyerId = String(invoice.cnic || '').trim().replace(/[^a-zA-Z0-9]/g, '');
     let cleanBuyerNTNCNIC = rawBuyerId;
     if (cleanBuyerNTNCNIC.length === 8) {
         cleanBuyerNTNCNIC = cleanBuyerNTNCNIC.substring(0, 7); // Strip 8th check digit for FBR 7-digit NTN requirement
