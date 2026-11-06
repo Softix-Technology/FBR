@@ -4799,8 +4799,7 @@ function handleExcelUpload(e) {
                             if (found.registration_type && (!inv.registrationType || inv.registrationType === 'Unregistered')) {
                                 inv.registrationType = found.registration_type;
                             }
-                            if (found.province) inv.buyerProvince = found.province;
-                            if (found.address) inv.buyerAddress = found.address;
+                            if (found.province && !inv.buyerProvince) inv.buyerProvince = found.province;
                             if (!inv.name && found.business_name) inv.name = found.business_name;
                         }
                     } catch (e) {
@@ -5256,7 +5255,7 @@ async function generateExcelInvoiceFbr(index) {
 
     let buyerRegType = invoice.registrationType || '';
     let buyerProvince = invoice.buyerProvince || sellerProvince;
-    let buyerAddress = invoice.buyerAddress || 'N/A';
+    let buyerAddress = invoice.buyerAddress || '';
     let buyerName = invoice.name || '';
 
     // 1. Check local database for buyer profile if available
@@ -5271,11 +5270,8 @@ async function generateExcelInvoiceFbr(index) {
                 if (!buyerRegType && matchedBuyer.registration_type) {
                     buyerRegType = matchedBuyer.registration_type;
                 }
-                if (matchedBuyer.province) {
+                if (matchedBuyer.province && (!invoice.buyerProvince || !buyerProvince)) {
                     buyerProvince = matchedBuyer.province;
-                }
-                if (matchedBuyer.address) {
-                    buyerAddress = matchedBuyer.address;
                 }
                 if (!buyerName && matchedBuyer.business_name) {
                     buyerName = matchedBuyer.business_name;
