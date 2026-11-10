@@ -138,9 +138,10 @@ class InvoicingController extends Controller
         // Get invoice data
      $invoiceData = $request->all();
      $draftId = $request->input('draft_id');
+     $buyerMobile = $request->input('buyerMobile');
 
         // Remove non-FBR fields that leak from the form
-    unset($invoiceData['draft_id'], $invoiceData['_token'], $invoiceData['furtherexpense'], $invoiceData['title'], $invoiceData['notes'], $invoiceData['status'], $invoiceData['cid'], $invoiceData['user_id']);
+    unset($invoiceData['draft_id'], $invoiceData['_token'], $invoiceData['furtherexpense'], $invoiceData['title'], $invoiceData['notes'], $invoiceData['status'], $invoiceData['cid'], $invoiceData['user_id'], $invoiceData['buyerMobile'], $invoiceData['buyer_mobile']);
 
     // Clean sellerAddress if it exists
     if (!empty($invoiceData['sellerAddress'])) {
@@ -228,18 +229,22 @@ unset($item);
         // Store buyer information (both Registered and Unregistered)
         if (!empty($invoiceData['buyerNTNCNIC'])) {
             try {
+                $buyerSaveData = [
+                    'user_id' => $user->id,
+                    'business_name' => $invoiceData['buyerBusinessName'] ?? '',
+                    'address' => $invoiceData['buyerAddress'] ?? '',
+                    'registration_type' => $invoiceData['buyerRegistrationType'] ?? '',
+                    'province' => $invoiceData['buyerProvince'] ?? ''
+                ];
+                if (!empty($buyerMobile)) {
+                    $buyerSaveData['mobile_number'] = $buyerMobile;
+                }
                 Buyer::updateOrCreate(
                     [
                         'ntn_cnic' => $invoiceData['buyerNTNCNIC'],
                         'cid' => $user->c_id
                     ],
-                    [
-                        'user_id' => $user->id,
-                        'business_name' => $invoiceData['buyerBusinessName'] ?? '',
-                        'address' => $invoiceData['buyerAddress'] ?? '',
-                        'registration_type' => $invoiceData['buyerRegistrationType'] ?? '',
-                        'province' => $invoiceData['buyerProvince'] ?? ''
-                    ]
+                    $buyerSaveData
                 );
 
                 Log::info('Buyer information stored/updated', [
@@ -381,6 +386,7 @@ $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $i
                 'buyer_province' => $request->input('buyerProvince'),
                 'buyer_registration_type' => $request->input('buyerRegistrationType'),
                 'buyer_address' => $request->input('buyerAddress'),
+                'buyer_mobile' => $buyerMobile,
                 'items' => json_encode($request->input('items', [])),
                 'fbr_invoice_no' => $result['data']['invoiceNumber'] ?? null,
                 'expense_col'=>$request->input('furtherexpense'),
@@ -455,6 +461,7 @@ $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $i
 
         try {
             $invoiceData = $request->all();
+            unset($invoiceData['draft_id'], $invoiceData['_token'], $invoiceData['furtherexpense'], $invoiceData['title'], $invoiceData['notes'], $invoiceData['status'], $invoiceData['cid'], $invoiceData['user_id'], $invoiceData['buyerMobile'], $invoiceData['buyer_mobile']);
 
             // Handle unregistered supplier logic
             $invoiceData = $this->handleUnregisteredSupplier($invoiceData);
@@ -1448,7 +1455,7 @@ $query = \App\Models\Buyer::query();
             $buyers = $query->orderBy('updated_at', 'desc')
                           ->limit($limit)
                           ->where('cid',auth()->user()->c_id)
-                          ->get(['id', 'ntn_cnic', 'business_name', 'address', 'registration_type', 'province']);
+                          ->get(['id', 'ntn_cnic', 'business_name', 'address', 'registration_type', 'province', 'mobile_number']);
 
             return response()->json([
                 'success' => true,
@@ -1491,7 +1498,7 @@ $query = \App\Models\Buyer::query();
                           ->orderBy('updated_at', 'desc')
                           ->limit($limit)
                           ->where('cid',auth()->user()->c_id)
-                          ->get(['id', 'ntn_cnic', 'business_name', 'address', 'registration_type', 'province']);
+                          ->get(['id', 'ntn_cnic', 'business_name', 'address', 'registration_type', 'province', 'mobile_number']);
 
             return response()->json([
                 'success' => true,
@@ -1555,6 +1562,7 @@ $query = \App\Models\Buyer::query();
             'province' => 'nullable|string|max:100',
             'registration_type' => 'nullable|string|max:50',
             'address' => 'nullable|string|max:500',
+            'mobile_number' => 'nullable|string|max:50',
         ]);
 
         try {
@@ -1830,7 +1838,8 @@ $query = \App\Models\Buyer::query();
             // STEP 2: SUBMIT NEW CORRECTED INVOICE TO FBR
             // =========================================================================
             $invoiceData = $request->all();
-            unset($invoiceData['_token'], $invoiceData['furtherexpense'], $invoiceData['title'], $invoiceData['notes'], $invoiceData['status'], $invoiceData['cid'], $invoiceData['user_id']);
+            $buyerMobile = $request->input('buyerMobile');
+            unset($invoiceData['_token'], $invoiceData['furtherexpense'], $invoiceData['title'], $invoiceData['notes'], $invoiceData['status'], $invoiceData['cid'], $invoiceData['user_id'], $invoiceData['buyerMobile'], $invoiceData['buyer_mobile']);
 
             if (!empty($invoiceData['sellerAddress'])) {
                 $invoiceData['sellerAddress'] = $this->cleanAddress($invoiceData['sellerAddress']);
@@ -1970,6 +1979,7 @@ $query = \App\Models\Buyer::query();
                     'buyer_province' => $request->input('buyerProvince'),
                     'buyer_registration_type' => $request->input('buyerRegistrationType'),
                     'buyer_address' => $request->input('buyerAddress'),
+                    'buyer_mobile' => $buyerMobile,
                     'items' => json_encode($request->input('items', [])),
                     'fbr_invoice_no' => $newFbrNo,
                     'expense_col' => $request->input('furtherexpense'),

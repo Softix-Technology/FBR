@@ -30,7 +30,9 @@ class SaleInvoiceFbr extends Model
         'buyer_business_name',
         'buyer_province',
         'buyer_registration_type',
-        'buyer_address','fbr_invoice_no','expense_col',
+        'buyer_address',
+        'buyer_mobile',
+        'fbr_invoice_no','expense_col',
         // Items will be handled via relationship or JSON
         'items', // If you store as JSON, otherwise use a separate table
         'cid'

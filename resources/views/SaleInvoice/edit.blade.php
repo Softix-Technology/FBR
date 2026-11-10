@@ -117,6 +117,9 @@
                             </div>
                         </div>
 
+                        @php
+                            $isTargetCompany = (auth()->check() && (auth()->user()->email === 'mna03226644400@gmail.com' || (isset($user) && ($user->email === 'mna03226644400@gmail.com' || $user->c_id == 12))));
+                        @endphp
                         <!-- Buyer Information -->
                         <div class="bg-gray-50 p-2 rounded-lg">
                             <div class="flex items-center mb-4">
@@ -125,7 +128,7 @@
                                 </svg>
                                 <h2 class="text-lg font-semibold text-gray-900">Buyer Information</h2>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 {{ $isTargetCompany ? 'lg:grid-cols-5' : 'lg:grid-cols-4' }} gap-6">
                                 <div class="relative">
                                     <label for="buyerNTNCNIC" class="block text-sm font-medium text-gray-700 mb-1">NTN/CNIC</label>
                                     <input type="text" id="buyerNTNCNIC" name="buyerNTNCNIC" placeholder="0000000000000" value="{{ $invoice->buyer_ntn_cnic }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" autocomplete="off">
@@ -165,7 +168,13 @@
                                         <option value="Registered" {{ $invoice->buyer_registration_type == 'Registered' ? 'selected' : '' }}>Registered</option>
                                     </select>
                                 </div>
-                                <div class="md:col-span-4">
+                                @if($isTargetCompany)
+                                <div>
+                                    <label for="buyerMobile" class="block text-sm font-medium text-gray-700 mb-1">Mobile No (Optional)</label>
+                                    <input type="text" id="buyerMobile" name="buyerMobile" placeholder="03001234567" value="{{ $invoice->buyer_mobile ?? '' }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" autocomplete="off">
+                                </div>
+                                @endif
+                                <div class="{{ $isTargetCompany ? 'col-span-1 md:col-span-2 lg:col-span-5' : 'md:col-span-4' }}">
                                     <label for="buyerAddress" class="block text-sm font-medium text-gray-700 mb-1">Address</label>
                                     <textarea id="buyerAddress" name="buyerAddress" placeholder="Buyer Address" required rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 !h-[50px]">{{ $invoice->buyer_address }}</textarea>
                                 </div>

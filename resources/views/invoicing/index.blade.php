@@ -47,6 +47,9 @@
                     <!-- Invoice Form -->
                     <form id="invoiceForm" method="POST" action="{{ route('invoicing.submit') }}" class="space-y-8">
                         @csrf
+                        @php
+                            $isTargetCompany = (auth()->check() && (auth()->user()->email === 'mna03226644400@gmail.com' || (isset($user) && ($user->email === 'mna03226644400@gmail.com' || $user->c_id == 12))));
+                        @endphp
 
                                                     <!-- Seller Information -->
                         <div class="bg-gray-50 rounded-lg">
@@ -65,11 +68,11 @@
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
                                         <label for="sellerNTNCNIC" class="block text-sm font-medium text-gray-700 mb-1" required>CNIC/NTN</label>
-                                        <input type="text" id="sellerNTNCNIC" name="sellerNTNCNIC" placeholder="0000000000000" value="{{ $user->cinc_ntn ?? '' }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                        <input type="text" id="sellerNTNCNIC" name="sellerNTNCNIC" placeholder="0000000000000" value="{{ $isTargetCompany ? '3410148140689' : ($user->cinc_ntn ?? '') }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                                     </div>
                                     <div>
                                         <label for="sellerBusinessName" class="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
-                                        <input type="text" id="sellerBusinessName" name="sellerBusinessName" placeholder="Your Business Name" value="{{ $user->business_name ?? $user->name }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                        <input type="text" id="sellerBusinessName" name="sellerBusinessName" placeholder="Your Business Name" value="{{ $isTargetCompany ? 'Mirza Noman Ahmed' : ($user->business_name ?? $user->name) }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                                     </div>
                                     <div>
                                         <label for="sellerProvince" class="block text-sm font-medium text-gray-700 mb-1">Province</label>
@@ -126,7 +129,7 @@
                                 </svg>
                                 <h2 class="text-lg font-semibold text-gray-900">Buyer Information</h2>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 {{ $isTargetCompany ? 'lg:grid-cols-5' : 'lg:grid-cols-4' }} gap-6">
                                 <div class="relative">
                                     <label for="buyerNTNCNIC" class="block text-sm font-medium text-gray-700 mb-1">NTN/CNIC</label>
                                     <input type="text" id="buyerNTNCNIC" name="buyerNTNCNIC" placeholder="0000000000000" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" autocomplete="off">
@@ -158,7 +161,13 @@
                                         <option value="Registered">Registered</option>
                                     </select>
                                 </div>
-                                <div class="md:col-span-4">
+                                @if($isTargetCompany)
+                                <div>
+                                    <label for="buyerMobile" class="block text-sm font-medium text-gray-700 mb-1">Mobile No (Optional)</label>
+                                    <input type="text" id="buyerMobile" name="buyerMobile" placeholder="03001234567" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" autocomplete="off">
+                                </div>
+                                @endif
+                                <div class="{{ $isTargetCompany ? 'col-span-1 md:col-span-2 lg:col-span-5' : 'md:col-span-4' }}">
                                     <label for="buyerAddress" class="block text-sm font-medium text-gray-700 mb-1">Address</label>
                                     <textarea id="buyerAddress" name="buyerAddress" placeholder="Buyer Address" required rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 !h-[50px]"></textarea>
                                 </div>
@@ -702,10 +711,11 @@
             uoMs: @json($uoMs ?? []),
             transactionTypes: @json($transactionTypes ?? []),
             existingProducts: @json($existingProducts ?? []),
+            isTargetCompany: @json($isTargetCompany ?? false),
             user: {
                 c_id: @json($user->c_id ?? ''),
-                cinc_ntn: @json($user->cinc_ntn ?? ''),
-                business_name: @json($user->business_name ?? $user->name ?? ''),
+                cinc_ntn: @json($isTargetCompany ? '3410148140689' : ($user->cinc_ntn ?? '')),
+                business_name: @json($isTargetCompany ? 'Mirza Noman Ahmed' : ($user->business_name ?? $user->name ?? '')),
                 province: @json($user->province ?? ''),
                 address: @json($user->address ?? ''),
                 use_sandbox: @json($user->use_sandbox ?? true)
@@ -1139,6 +1149,11 @@ if (isModal) {
             const ghAmount = (exclVal + salesTax3rd) * ghPercent / 100;
             $('#modalGhAmount').val(ghAmount.toFixed(2));
 
+            if (window.appData && window.appData.isTargetCompany) {
+                const total3rd = exclVal + salesTax3rd;
+                $('#modalTotalValues').val(total3rd.toFixed(2));
+            }
+
             if (rate > 0 && basePrice > 0) {
                 salesTaxField.classList.remove('bg-gray-50', 'bg-red-50');
                 salesTaxField.classList.add('bg-green-50');
@@ -1409,6 +1424,11 @@ if (isModal) {
             // G/H Amount = (Value Sales Excluding ST + Sales Tax) * GH% / 100
             const ghAmount = (valueSales + salesTax) * ghPercent / 100;
             ghAmountField.value = ghAmount.toFixed(2);
+
+            if (window.appData && window.appData.isTargetCompany) {
+                const total3rd = valueSales + salesTax;
+                $('#modalTotalValues').val(total3rd.toFixed(2));
+            }
         }
 
         // Global variables for buyer autocomplete
@@ -1570,6 +1590,7 @@ const result = JSON.parse(cleanText);
                 const escapedAddress = escapeHtmlStr(buyer.address || '');
                 const escapedReg = escapeHtmlStr(buyer.registration_type || '');
                 const escapedProvince = escapeHtmlStr(buyer.province || '');
+                const escapedMobile = escapeHtmlStr(buyer.mobile_number || '');
 
                 html += `
                     <div class="buyer-suggestion flex items-center justify-between px-3 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition"
@@ -1578,7 +1599,8 @@ const result = JSON.parse(cleanText);
                          data-business-name="${escapedName}"
                          data-address="${escapedAddress}"
                          data-registration-type="${escapedReg}"
-                         data-province="${escapedProvince}">
+                         data-province="${escapedProvince}"
+                         data-mobile-number="${escapedMobile}">
                         <div class="flex-1 pr-2 min-w-0 cursor-pointer buyer-select-area">
                             <div class="flex justify-between items-start">
                                 <div>
@@ -1837,6 +1859,10 @@ const result = JSON.parse(cleanText);
             document.getElementById('buyerNTNCNIC').value = ntnCnic;
             document.getElementById('buyerBusinessName').value = businessName;
             document.getElementById('buyerAddress').value = address;
+            const buyerMobileField = document.getElementById('buyerMobile');
+            if (buyerMobileField) {
+                buyerMobileField.value = suggestionElement.dataset.mobileNumber || '';
+            }
 
             // Set registration type
             const registrationTypeSelect = document.getElementById('buyerRegistrationType');
@@ -2732,6 +2758,11 @@ const result = JSON.parse(cleanText);
                     const ghBase = exclVal + salesTax;
                     const ghAmount = ghBase * ghPercent / 100;
                     $('#modalGhAmount').val(ghAmount.toFixed(2));
+
+                    if (window.appData && window.appData.isTargetCompany) {
+                        const total3rd = exclVal + salesTax;
+                        $('#modalTotalValues').val(total3rd.toFixed(2));
+                    }
 
                     if (rate > 0 && basePrice > 0) {
                         salesTaxField.classList.remove('bg-gray-50', 'bg-red-50');
@@ -3915,6 +3946,8 @@ const result = JSON.parse(cleanText);
             document.getElementById('buyerNTNCNIC').value = '';
             document.getElementById('buyerBusinessName').value = '';
             document.getElementById('buyerAddress').value = '';
+            const clearBuyerMobile = document.getElementById('buyerMobile');
+            if (clearBuyerMobile) clearBuyerMobile.value = '';
             $('#buyerProvince').val('').trigger('change');
             $('#buyerRegistrationType').val('').trigger('change');
 

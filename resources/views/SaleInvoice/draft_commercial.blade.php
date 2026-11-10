@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Commercial Draft - {{ $invoice->seller_business_name ?? '' }}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body { font-family: Georgia, 'Times New Roman', serif; background: #e9e9e9; margin: 0; padding: 30px 0; }
@@ -11,7 +12,7 @@
   .company-address { text-align: center; font-size: 14px; margin: 0; line-height: 1.4; }
   .stn-ntn-row { display: flex; justify-content: space-between; font-size: 14px; margin: 18px 0 10px 0; flex-wrap: wrap; gap: 6px; }
   .stn-ntn-row b { font-weight: bold; }
-  .logo-qr-row { display: flex; justify-content: center; gap: 20px; margin: 20px 0 10px 0; align-items: center; flex-wrap: wrap; }
+  .logo-qr-row { display: center; justify-content: center; gap: 20px; margin: 20px 0 10px 0; align-items: center; flex-wrap: wrap; }
   .logo-qr-row .fbr-img { height: 70px; object-fit: contain; }
   .digital-invoice-line { text-align: center; font-weight: bold; font-size: 14px; margin: 14px 0 22px 0; }
   .invoice-title { font-size: 22px; font-weight: normal; margin: 0 0 14px 0; }
@@ -34,11 +35,40 @@
   .footer-note { text-align: center; font-size: 12px; border-top: 1px solid #000; padding-top: 10px; margin-top: 30px; }
   .page-number { text-align: right; font-size: 12px; margin-top: 60px; }
   .print-btn { position: fixed; bottom: 20px; right: 20px; padding: 10px 20px; background: #2c3e50; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; z-index: 1000; }
-  @media print { body { background: #fff; padding: 0; } .page { box-shadow: none; padding: 40px 50px; } .print-btn { display: none; } }
+  .download-btn {
+    position: fixed;
+    top: 30px;
+    right: 30px;
+    padding: 10px 22px;
+    background: #1e40af;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 1000;
+    transition: all 0.2s ease;
+  }
+  .download-btn:hover {
+    background: #1d4ed8;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+  }
+  @media print { body { background: #fff; padding: 0; } .page { box-shadow: none; padding: 40px 50px; } .print-btn, .download-btn { display: none !important; } }
   @media (max-width: 600px) { .page { padding: 20px; } .company-name { font-size: 22px; } table.items { font-size: 11px; } table.items th, table.items td { padding: 4px 5px; } }
 </style>
 </head>
 <body>
+  <button id="downloadPdfBtn" class="download-btn" onclick="downloadPDF()">
+    <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+    </svg>
+    Download PDF
+  </button>
   <button class="print-btn" onclick="window.print()">Print Invoice</button>
   <div class="page">
     <p class="company-name">{{ $invoice->seller_business_name ?? '' }}</p>
@@ -138,5 +168,41 @@
     <p class="footer-note">This is a draft invoice — not yet submitted to FBR.</p>
     <p class="page-number">Page 1</p>
   </div>
+
+  <script>
+    function downloadPDF() {
+      const btn = document.getElementById('downloadPdfBtn');
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = '<svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 110-12 6 6 0 010 12z"/></svg> Generating PDF...';
+      btn.disabled = true;
+
+      if (typeof html2pdf === 'undefined') {
+        window.print();
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        return;
+      }
+
+      const element = document.querySelector('.page');
+      const filename = 'Commercial_Draft_{{ $invoice->invoice_ref_no ?? $invoice->id }}.pdf';
+      const opt = {
+        margin: [8, 8, 8, 8],
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).save().then(function() {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+      }).catch(function(err) {
+        console.error('PDF error:', err);
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        window.print();
+      });
+    }
+  </script>
 </body>
 </html>

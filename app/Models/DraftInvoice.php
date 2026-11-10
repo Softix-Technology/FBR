@@ -31,7 +31,9 @@ class DraftInvoice extends Model
         'buyer_business_name',
         'buyer_province',
         'buyer_registration_type',
-        'buyer_address','expense_col',
+        'buyer_address',
+        'buyer_mobile',
+        'expense_col',
         // Items will be handled via relationship or JSON
         'items', // If you store as JSON, otherwise use a separate table
         'is_third_schedule',

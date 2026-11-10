@@ -371,10 +371,10 @@
                     <div class="info-value">{{ $invoice->buyer_address }}</div>
                 </div>
                 @endif
-                @if(isset($invoice->buyer_phone) && $invoice->buyer_phone)
+                @if(!empty($invoice->buyer_mobile) || !empty($invoice->buyer_phone))
                 <div class="info-row">
-                    <div class="info-label">Phone:</div>
-                    <div class="info-value">{{ $invoice->buyer_phone }}</div>
+                    <div class="info-label">Mobile / Phone:</div>
+                    <div class="info-value">{{ $invoice->buyer_mobile ?: $invoice->buyer_phone }}</div>
                 </div>
                 @endif
             </div>

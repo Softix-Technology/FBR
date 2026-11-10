@@ -20,8 +20,10 @@ class Buyer extends Model
         'ntn_cnic',
         'business_name',
         'address',
+        'mobile_number',
         'registration_type',
-        'province','cid'
+        'province',
+        'cid'
     ];
 
     /**
