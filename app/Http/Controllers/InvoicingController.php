@@ -1020,10 +1020,51 @@ $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $i
                 $request->origination_supplier
             );
 
-            if ($result['success']) {
+            // If originationSupplier = 7 returned empty, try with 1 (Punjab alternate code in FBR)
+            if ((!$result['success'] || empty($result['data'])) && in_array((int)$request->origination_supplier, [1, 7])) {
+                $altSupplier = ((int)$request->origination_supplier === 7) ? 1 : 7;
+                $altResult = $this->getFbrApiService()->getSaleTypeToRate(
+                    $user->fbr_access_token,
+                    $date,
+                    $request->trans_type_id,
+                    $altSupplier
+                );
+                if ($altResult['success'] && !empty($altResult['data'])) {
+                    $result = $altResult;
+                }
+            }
+
+            // Fallback for standard rate (transTypeId = 75) if FBR is down or returns empty
+            if ((!$result['success'] || empty($result['data'])) && (int)$request->trans_type_id === 75) {
                 return response()->json([
                     'success' => true,
-                    'data' => $result['data']
+                    'data' => [
+                        [
+                            'ratE_ID' => 728,
+                            'ratE_DESC' => '18%',
+                            'ratE_VALUE' => 18
+                        ]
+                    ]
+                ]);
+            }
+
+            if ($result['success']) {
+                $rates = $result['data'] ?? [];
+                if (empty($rates)) {
+                    // Safe defaults for transaction types that have 0% rate in FBR (e.g. Zero rate, Exempt, DTRE)
+                    if (in_array((int)$request->trans_type_id, [78, 80, 81, 82, 83, 86, 88, 89, 91, 92, 95, 138])) {
+                        $rates = [
+                            [
+                                'ratE_ID' => 727,
+                                'ratE_DESC' => '0%',
+                                'ratE_VALUE' => 0
+                            ]
+                        ];
+                    }
+                }
+                return response()->json([
+                    'success' => true,
+                    'data' => $rates
                 ]);
             } else {
                 return response()->json([
@@ -1040,6 +1081,34 @@ $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $i
                 'origination_supplier' => $request->origination_supplier,
                 'error' => $e->getMessage()
             ]);
+
+            // Fallback for standard rate on unexpected exception
+            if ((int)$request->trans_type_id === 75) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        [
+                            'ratE_ID' => 728,
+                            'ratE_DESC' => '18%',
+                            'ratE_VALUE' => 18
+                        ]
+                    ]
+                ]);
+            }
+
+            // Fallback for zero rate on unexpected exception
+            if (in_array((int)$request->trans_type_id, [78, 80])) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        [
+                            'ratE_ID' => 727,
+                            'ratE_DESC' => '0%',
+                            'ratE_VALUE' => 0
+                        ]
+                    ]
+                ]);
+            }
 
             return response()->json([
                 'success' => false,

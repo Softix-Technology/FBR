@@ -21,7 +21,7 @@
                                     <div class="flex-shrink-0">
                                         <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
                                             <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                        </svg>calculateRateForField
+                                        </svg>
                                     </div>
                                     <div class="ml-3">
                                         <h3 class="text-sm font-medium text-yellow-800">
@@ -1881,9 +1881,14 @@ const result = JSON.parse(cleanText);
             registrationTypeSelect.value = registrationType;
             $(registrationTypeSelect).trigger('change');
 
-            // Set province using Select2
+            // Set province using Select2 (support code or description)
             const provinceSelect = document.getElementById('buyerProvince');
-            $(provinceSelect).val(province).trigger('change');
+            let provValToSet = province;
+            if (isNaN(parseInt(provValToSet)) && typeof provinces !== 'undefined' && Array.isArray(provinces)) {
+                const foundProv = provinces.find(p => p.stateProvinceDesc && p.stateProvinceDesc.toUpperCase() === String(provValToSet).toUpperCase());
+                if (foundProv) provValToSet = foundProv.stateProvinceCode;
+            }
+            $(provinceSelect).val(provValToSet).trigger('change');
 
             // Hide autocomplete
             hideBuyerAutocomplete();
@@ -2240,12 +2245,30 @@ const result = JSON.parse(cleanText);
                 const text = await response.text();
 console.log('RAW RATE RESPONSE:', text);
 
-const cleanText = text.trim().startsWith('{')
-    ? text
-    : text.substring(text.indexOf('{'));
+                let result = null;
+                try {
+                    const cleanText = text.trim().startsWith('{')
+                        ? text
+                        : text.substring(text.indexOf('{'));
+                    result = JSON.parse(cleanText);
+                } catch (parseError) {
+                    console.warn('Could not parse rate response as JSON:', parseError);
+                }
 
-
-const result = JSON.parse(cleanText);
+                // If FBR API failed or timed out, provide standard rate fallback for Goods at standard rate (75)
+                if ((!result || !result.success || !result.data || result.data.length === 0) && numericTransTypeId === 75) {
+                    result = {
+                        success: true,
+                        data: [{ ratE_ID: 728, ratE_DESC: '18%', ratE_VALUE: 18 }]
+                    };
+                }
+                // Fallback for zero rate (78 or 80)
+                if ((!result || !result.success || !result.data || result.data.length === 0) && (numericTransTypeId === 78 || numericTransTypeId === 80)) {
+                    result = {
+                        success: true,
+                        data: [{ ratE_ID: 727, ratE_DESC: '0%', ratE_VALUE: 0 }]
+                    };
+                }
 
                 if (result.success && result.data && result.data.length > 0) {
                     // Destroy existing Select2 before modifying options
@@ -2332,7 +2355,7 @@ const result = JSON.parse(cleanText);
                     calculateSalesTaxForItem(rateSelect);
                 } else {
                     // No rate found or API returned failure
-                    const errMsg = result.message || 'No rates found';
+                    const errMsg = (result && result.message) ? result.message : 'No rates found';
                     rateSelect.innerHTML = `<option value="">⚠ ${errMsg} — change sale type or retry</option>`;
                     $(rateSelect).val('').trigger('change');
                     rateSelect.classList.remove('bg-blue-50');
@@ -2348,13 +2371,28 @@ const result = JSON.parse(cleanText);
 
             } catch (error) {
                 console.error('Error calculating rates:', error);
-                const isTimeout = error.message && (error.message.includes('timeout') || error.message.includes('network'));
-                const errLabel = isTimeout ? 'FBR timeout - Retry' : 'Error loading rates';
-                rateSelect.innerHTML = `<option value="">${errLabel}</option>`;
-                $(rateSelect).val('').trigger('change');
-                rateSelect.classList.remove('bg-blue-50');
-                rateSelect.classList.add('bg-red-50');
-                rateSelect.title = 'Error loading rates — ' + error.message;
+                if (numericTransTypeId === 75) {
+                    // Resilient fallback for standard goods
+                    rateSelect.innerHTML = '<option value="">Select Rate</option><option value=\'{"rate_id":728,"rate_value":18,"rate_desc":"18%"}\' selected>18%</option>';
+                    $(rateSelect).val('{"rate_id":728,"rate_value":18,"rate_desc":"18%"}').trigger('change');
+                    rateSelect.classList.remove('bg-blue-50', 'bg-red-50');
+                    rateSelect.classList.add('bg-green-50');
+                    calculateSalesTaxForItem(rateSelect);
+                } else if (numericTransTypeId === 78 || numericTransTypeId === 80) {
+                    // Resilient fallback for zero rate
+                    rateSelect.innerHTML = '<option value="">Select Rate</option><option value=\'{"rate_id":727,"rate_value":0,"rate_desc":"0%"}\' selected>0%</option>';
+                    $(rateSelect).val('{"rate_id":727,"rate_value":0,"rate_desc":"0%"}').trigger('change');
+                    rateSelect.classList.remove('bg-blue-50', 'bg-red-50');
+                    rateSelect.classList.add('bg-green-50');
+                    calculateSalesTaxForItem(rateSelect);
+                } else {
+                    const isTimeout = error.message && (error.message.includes('timeout') || error.message.includes('network'));
+                    const errLabel = isTimeout ? 'FBR timeout - Retry' : 'Error loading rates';
+                    rateSelect.innerHTML = `<option value="">${errLabel}</option>`;
+                    $(rateSelect).val('').trigger('change');
+                    rateSelect.classList.remove('bg-blue-50');
+                    rateSelect.classList.add('bg-red-50');
+                    rateSelect.title = 'Error loading rates — ' + error.message;
 
                 showMessage('Failed to load rates from FBR server. Please check your internet/FBR access token and try again.', 'error');
 
@@ -2744,10 +2782,10 @@ const result = JSON.parse(cleanText);
                 }
             }
             const valueSales = parseFloat(valueSalesField.value) || 0;
+            const isThirdParty = is3rdScheduleSelected();
 
             let baseForTax, salesTax;
             if (isModal) {
-                const isThirdParty = is3rdScheduleSelected();
                 if (isThirdParty) {
                     // *** FIX: 3rd Schedule calculations (quantity NOT applied) ***
                     const basePrice = parseFloat(document.getElementById('modalFixedNotifiedValueOrRetailPrice').value) || 0;
