@@ -434,7 +434,7 @@
 
     <script>
         // Configuration
-        const API_BASE = (window.location && window.location.origin) ? window.location.origin : '{{ url('/') }}';
+        const API_BASE = '{{ url('/') }}';
         const CSRF_TOKEN = '{{ csrf_token() }}';
         const INVOICE_ID = {{ $invoice->id }};
         const IS_EDIT_MODE = true;

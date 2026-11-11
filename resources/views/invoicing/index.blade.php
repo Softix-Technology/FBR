@@ -699,7 +699,7 @@
 
     <script>
         // Configuration
-        const API_BASE = (window.location && window.location.origin) ? window.location.origin : '{{ url('/') }}';
+        const API_BASE = '{{ url('/') }}';
         const CSRF_TOKEN = '{{ csrf_token() }}';
     </script>
 
@@ -1028,7 +1028,7 @@ const data = JSON.parse(cleanText);
             document.getElementById('invoiceDate').addEventListener('change', calculateRates);
 
             // Delegate event listener for sale type changes in dynamic items using Select2
-            $(document).on('select2:select', '.sale-type-select:not(#modalSaleType)', function(e) {
+            $(document).on('select2:select', '.sale-type-select', function(e) {
                 calculateRatesForItem(e.target);
             });
 
@@ -2177,7 +2177,7 @@ const result = JSON.parse(cleanText);
                 return;
             }
 
-            const invoiceDate = document.getElementById('invoiceDate').value || new Date().toISOString().split('T')[0];
+            const invoiceDate = document.getElementById('invoiceDate').value;
             // Use Select2 val() to get the actual selected value (more reliable than .value)
             const buyerProvince = $('#buyerProvince').val() || document.getElementById('buyerProvince').value;
             // Read from Select2 first, fall back to native .value
@@ -2185,8 +2185,9 @@ const result = JSON.parse(cleanText);
 
             console.log('[Rate Fetch] invoiceDate:', invoiceDate, '| buyerProvince:', buyerProvince, '| saleType:', saleType);
 
-            // Reset rate select if sale type is missing
-            if (!saleType) {
+
+            // Reset rate select if any required field is missing
+            if (!invoiceDate || !buyerProvince || !saleType) {
                 rateSelect.innerHTML = '<option value="">Select Rate</option>';
                 $(rateSelect).val('').trigger('change');
                 rateSelect.classList.remove('bg-green-50', 'bg-red-50');
@@ -2197,21 +2198,19 @@ const result = JSON.parse(cleanText);
                 return;
             }
 
-            // Sale type resolution (numeric or description)
-            let transTypeId = saleType;
-            if (isNaN(parseInt(transTypeId)) && typeof transactionTypes !== 'undefined' && Array.isArray(transactionTypes)) {
-                const matchedType = transactionTypes.find(t => t.transactioN_DESC && t.transactioN_DESC.toLowerCase().trim() === String(saleType).toLowerCase().trim());
-                if (matchedType) transTypeId = matchedType.transactioN_TYPE_ID;
-            }
-            const numericTransTypeId = parseInt(transTypeId) || 75;
+            // Sale type now contains only the transaction type ID
+            const transTypeId = saleType;
 
-            // Province code resolution (numeric code or province name)
-            let provinceCode = buyerProvince || $('#sellerProvince').val() || '7';
-            if (isNaN(parseInt(provinceCode)) && typeof provinces !== 'undefined' && Array.isArray(provinces)) {
-                const matchedProv = provinces.find(p => p.stateProvinceDesc && p.stateProvinceDesc.toUpperCase() === String(provinceCode).toUpperCase());
-                if (matchedProv) provinceCode = matchedProv.stateProvinceCode;
+            // Buyer province now contains the province code directly
+            const provinceCode = buyerProvince;
+            if (!provinceCode) {
+                rateSelect.innerHTML = '<option value="">Select Rate</option>';
+                $(rateSelect).val('').trigger('change');
+                rateSelect.classList.remove('bg-green-50');
+                rateSelect.classList.add('bg-red-50');
+                showMessage('Invalid province selected', 'error');
+                return;
             }
-            const numericProvinceCode = parseInt(provinceCode) || 7;
 
             try {
                 // Show loading state
@@ -2232,33 +2231,23 @@ const result = JSON.parse(cleanText);
                     },
                     body: JSON.stringify({
                         date: invoiceDate,
-                        trans_type_id: numericTransTypeId,
-                        origination_supplier: numericProvinceCode
+                        trans_type_id: parseInt(transTypeId),
+                        origination_supplier: parseInt(provinceCode)
                     })
                 });
-                console.log('[Rate Fetch] Sent payload:', { date: invoiceDate, trans_type_id: numericTransTypeId, origination_supplier: numericProvinceCode });
+                console.log('[Rate Fetch] Sent payload:', { date: invoiceDate, trans_type_id: parseInt(transTypeId), origination_supplier: parseInt(provinceCode) });
 
-                let result = null;
-                try {
-                    const text = await response.text();
-                    console.log('RAW RATE RESPONSE:', text);
-                    const cleanText = text.trim().startsWith('{')
-                        ? text
-                        : text.substring(text.indexOf('{'));
-                    result = JSON.parse(cleanText);
-                } catch (parseError) {
-                    console.warn('Could not parse rate response as JSON:', parseError);
-                }
+                const text = await response.text();
+console.log('RAW RATE RESPONSE:', text);
 
-                // If FBR API failed or timed out, provide standard rate fallback for Goods at standard rate (75)
-                if ((!result || !result.success || !result.data || result.data.length === 0) && numericTransTypeId === 75) {
-                    result = {
-                        success: true,
-                        data: [{ ratE_ID: 728, ratE_DESC: '18%', ratE_VALUE: 18 }]
-                    };
-                }
+const cleanText = text.trim().startsWith('{')
+    ? text
+    : text.substring(text.indexOf('{'));
 
-                if (result && result.success && result.data && result.data.length > 0) {
+
+const result = JSON.parse(cleanText);
+
+                if (result.success && result.data && result.data.length > 0) {
                     // Destroy existing Select2 before modifying options
                     if ($(rateSelect).data('select2')) {
                         $(rateSelect).select2('destroy');
@@ -2359,27 +2348,18 @@ const result = JSON.parse(cleanText);
 
             } catch (error) {
                 console.error('Error calculating rates:', error);
-                if (numericTransTypeId === 75) {
-                    // Resilient fallback for standard goods
-                    rateSelect.innerHTML = '<option value="">Select Rate</option><option value=\'{"rate_id":728,"rate_value":18,"rate_desc":"18%"}\' selected>18%</option>';
-                    $(rateSelect).val('{"rate_id":728,"rate_value":18,"rate_desc":"18%"}').trigger('change');
-                    rateSelect.classList.remove('bg-blue-50', 'bg-red-50');
-                    rateSelect.classList.add('bg-green-50');
-                    calculateSalesTaxForItem(rateSelect);
-                } else {
-                    const isTimeout = error.message && (error.message.includes('timeout') || error.message.includes('network'));
-                    const errLabel = isTimeout ? 'FBR timeout - Retry' : 'Error loading rates';
-                    rateSelect.innerHTML = `<option value="">${errLabel}</option>`;
-                    $(rateSelect).val('').trigger('change');
-                    rateSelect.classList.remove('bg-blue-50');
-                    rateSelect.classList.add('bg-red-50');
-                    rateSelect.title = 'Error loading rates — ' + error.message;
+                const isTimeout = error.message && (error.message.includes('timeout') || error.message.includes('network'));
+                const errLabel = isTimeout ? 'FBR timeout - Retry' : 'Error loading rates';
+                rateSelect.innerHTML = `<option value="">${errLabel}</option>`;
+                $(rateSelect).val('').trigger('change');
+                rateSelect.classList.remove('bg-blue-50');
+                rateSelect.classList.add('bg-red-50');
+                rateSelect.title = 'Error loading rates — ' + error.message;
 
-                    showMessage('Failed to load rates from FBR server. Please check your internet/FBR access token and try again.', 'error');
+                showMessage('Failed to load rates from FBR server. Please check your internet/FBR access token and try again.', 'error');
 
-                    // Trigger sales tax calculation when error occurs
-                    calculateSalesTaxForItem(rateSelect);
-                }
+                // Trigger sales tax calculation when error occurs
+                calculateSalesTaxForItem(rateSelect);
             } finally {
                 // Hide loading state
                 if (loader) {

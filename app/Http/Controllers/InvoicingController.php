@@ -988,46 +988,12 @@ $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $i
     {
         $user = Auth::user();
 
-        if (!$user || !$user->fbr_access_token) {
+        if (!$user->fbr_access_token) {
             return response()->json([
                 'success' => false,
                 'message' => 'FBR Access Token is required.'
             ], 400);
         }
-
-        // Normalize origination_supplier (accept integer or province description like "PUNJAB")
-        $originationSupplier = $request->input('origination_supplier');
-        if (!is_numeric($originationSupplier)) {
-            $provMap = [
-                'PUNJAB' => 7,
-                'SINDH' => 8,
-                'BALOCHISTAN' => 2,
-                'AZAD JAMMU AND KASHMIR' => 4,
-                'CAPITAL TERRITORY' => 5,
-                'KHYBER PAKHTUNKHWA' => 6,
-                'GILGIT BALTISTAN' => 9,
-            ];
-            $key = strtoupper(trim((string)$originationSupplier));
-            $originationSupplier = $provMap[$key] ?? 7;
-        }
-
-        // Normalize trans_type_id
-        $transTypeId = $request->input('trans_type_id');
-        if (!is_numeric($transTypeId)) {
-            $transTypeId = 75; // default Goods at standard rate
-        }
-
-        // Normalize date
-        $dateInput = $request->input('date');
-        if (!$dateInput) {
-            $dateInput = now()->toDateString();
-        }
-
-        $request->merge([
-            'date' => $dateInput,
-            'trans_type_id' => (int) $transTypeId,
-            'origination_supplier' => (int) $originationSupplier
-        ]);
 
         $validator = Validator::make($request->all(), [
             'date' => 'required|date',
@@ -1054,35 +1020,7 @@ $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $i
                 $request->origination_supplier
             );
 
-            // If originationSupplier = 7 returned empty, try with 1 (Punjab alternate code in FBR)
-            if ((!$result['success'] || empty($result['data'])) && in_array((int)$request->origination_supplier, [1, 7])) {
-                $altSupplier = ((int)$request->origination_supplier === 7) ? 1 : 7;
-                $altResult = $this->getFbrApiService()->getSaleTypeToRate(
-                    $user->fbr_access_token,
-                    $date,
-                    $request->trans_type_id,
-                    $altSupplier
-                );
-                if ($altResult['success'] && !empty($altResult['data'])) {
-                    $result = $altResult;
-                }
-            }
-
-            // Fallback for standard rate (transTypeId = 75) if FBR is down or returns empty
-            if ((!$result['success'] || empty($result['data'])) && (int)$request->trans_type_id === 75) {
-                return response()->json([
-                    'success' => true,
-                    'data' => [
-                        [
-                            'ratE_ID' => 728,
-                            'ratE_DESC' => '18%',
-                            'ratE_VALUE' => 18
-                        ]
-                    ]
-                ]);
-            }
-
-            if ($result['success'] && !empty($result['data'])) {
+            if ($result['success']) {
                 return response()->json([
                     'success' => true,
                     'data' => $result['data']
@@ -1102,20 +1040,6 @@ $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $i
                 'origination_supplier' => $request->origination_supplier,
                 'error' => $e->getMessage()
             ]);
-
-            // Fallback for standard rate on unexpected exception
-            if ((int)$request->trans_type_id === 75) {
-                return response()->json([
-                    'success' => true,
-                    'data' => [
-                        [
-                            'ratE_ID' => 728,
-                            'ratE_DESC' => '18%',
-                            'ratE_VALUE' => 18
-                        ]
-                    ]
-                ]);
-            }
 
             return response()->json([
                 'success' => false,

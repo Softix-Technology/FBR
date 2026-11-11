@@ -449,7 +449,7 @@
 
     <script>
         // Configuration
-        const API_BASE = (window.location && window.location.origin) ? window.location.origin : '{{ url('/') }}';
+        const API_BASE = '{{ url('/') }}';
         const CSRF_TOKEN = '{{ csrf_token() }}';
         const DRAFT_ID = {{ $draftInvoice->id }};
         console.log(DRAFT_ID)
