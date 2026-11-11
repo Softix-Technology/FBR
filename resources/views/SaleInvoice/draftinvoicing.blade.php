@@ -513,7 +513,10 @@
                        
                               <td colspan={{$colspan}} style="text-align: right;">Grand Total:</td>
                               <td>
-    {{ number_format($totalAmount + $furtherTotal + ($invoice->expense_col ?? 0), 2) }}
+    @php
+        $grandTotalAmount = $totalSalesTax + $totalSalesValue + $furtherTotal + floatval($invoice->expense_col ?? 0);
+    @endphp
+    {{ number_format($grandTotalAmount, 2) }}
 </td>
 
                            
@@ -552,7 +555,7 @@
                     }
                     return trim($words);
                 }
-     $capitalized = ucwords(numberToWords(intval($totalAmount + $furtherTotal + ($invoice->expense_col ?? 0)))) . " Rupees Only";
+     $capitalized = ucwords(numberToWords(intval($grandTotalAmount))) . " Rupees Only";
             @endphp
             <div class="summary-value">{{ $capitalized }}</div>
         </div>

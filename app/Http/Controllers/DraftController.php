@@ -289,6 +289,15 @@ public function saveDraft(Request $request)
                         $item[$numField] = round((float) $item[$numField], 2);
                     }
                 }
+                // Safeguard: Ensure totalValues reconciles with furtherTax for standard goods
+                if (!empty($item['furtherTax']) && (float)$item['furtherTax'] > 0) {
+                    $expectedTotal = round((float) ($item['valueSalesExcludingST'] ?? 0) + (float) ($item['salesTaxApplicable'] ?? 0) + (float) $item['furtherTax'], 2);
+                    $totalWithoutFurther = round((float) ($item['valueSalesExcludingST'] ?? 0) + (float) ($item['salesTaxApplicable'] ?? 0), 2);
+                    $currentTotal = round((float) ($item['totalValues'] ?? 0), 2);
+                    if (abs($currentTotal - $totalWithoutFurther) < 0.05) {
+                        $item['totalValues'] = $expectedTotal;
+                    }
+                }
                 unset($item['rateValues']);
             }
             unset($item);

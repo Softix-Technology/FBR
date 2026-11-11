@@ -171,16 +171,26 @@ foreach ($invoiceData['items'] as &$item) {
         $item['rateValues'] = round((float) $item['rateValues'], 2);
     }
 
-    if (isset($item['totalValues'])) {
-        $item['totalValues'] = round((float) $item['totalValues'], 2);
-    }
-
     if (isset($item['salesTaxApplicable'])) {
         $item['salesTaxApplicable'] = round((float) $item['salesTaxApplicable'], 2);
     }
 
     if (isset($item['furtherTax'])) {
         $item['furtherTax'] = round((float) $item['furtherTax'], 2);
+    }
+
+    if (isset($item['totalValues'])) {
+        $item['totalValues'] = round((float) $item['totalValues'], 2);
+    }
+
+    // Safeguard: Ensure totalValues reconciles with furtherTax for standard goods
+    if (!empty($item['furtherTax']) && (float)$item['furtherTax'] > 0) {
+        $expectedTotal = round((float) ($item['valueSalesExcludingST'] ?? 0) + (float) ($item['salesTaxApplicable'] ?? 0) + (float) $item['furtherTax'], 2);
+        $totalWithoutFurther = round((float) ($item['valueSalesExcludingST'] ?? 0) + (float) ($item['salesTaxApplicable'] ?? 0), 2);
+        $currentTotal = round((float) ($item['totalValues'] ?? 0), 2);
+        if (abs($currentTotal - $totalWithoutFurther) < 0.05) {
+            $item['totalValues'] = $expectedTotal;
+        }
     }
 
     if (isset($item['discount'])) {
@@ -387,7 +397,7 @@ $result = $this->getFbrApiService()->postInvoiceData($user->fbr_access_token, $i
                 'buyer_registration_type' => $request->input('buyerRegistrationType'),
                 'buyer_address' => $request->input('buyerAddress'),
                 'buyer_mobile' => $buyerMobile,
-                'items' => json_encode($request->input('items', [])),
+                'items' => json_encode($originalItems),
                 'fbr_invoice_no' => $result['data']['invoiceNumber'] ?? null,
                 'expense_col'=>$request->input('furtherexpense'),
                 'cid'=>auth()->user()->c_id

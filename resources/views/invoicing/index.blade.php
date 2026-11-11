@@ -1074,7 +1074,7 @@ const data = JSON.parse(cleanText);
 
             // Add event listener for rate*quantity and fixedNotifiedValueOrRetailPrice
             let _updatingFixedNotified = false;
-            $(document).on('input', 'input[name*="[rateValues]"],input[name*="[quantity]"], #modalRateValues,#modalQuantity,#modalFixedNotifiedValueOrRetailPrice,#modalDiscount,#modalValueSalesExcludingST', function(e) {
+            $(document).on('input', 'input[name*="[rateValues]"],input[name*="[quantity]"], #modalRateValues,#modalQuantity,#modalFixedNotifiedValueOrRetailPrice,#modalDiscount,#modalValueSalesExcludingST,#modalFurtherTax', function(e) {
 
 // Check if we're in the modal context
 const isModal =
@@ -1082,7 +1082,8 @@ const isModal =
     e.target.id === 'modalRateValues' ||
     e.target.id === 'modalFixedNotifiedValueOrRetailPrice' ||
     e.target.id === 'modalDiscount' ||
-    e.target.id === 'modalValueSalesExcludingST';
+    e.target.id === 'modalValueSalesExcludingST' ||
+    e.target.id === 'modalFurtherTax';
 
 if (isModal) {
     const isThirdParty = is3rdScheduleSelected();
@@ -1170,14 +1171,11 @@ if (isModal) {
     } else {
         // ===== Standard Calculation =====
         const rater = parseFloat(rateSelecter.value) || 0;
-        const totalTaxvalue = (rater * taxter) / 100;
-        const total = (rater + totalTaxvalue) * qty;
         const totalDM = rater * qty;
         
-        $('#modalTotalValues').val(total.toFixed(2));
         $('#modalValueSalesExcludingST').val(totalDM.toFixed(2));
         
-        const valueSales = parseFloat(valueSalesField.value) || 0;
+        const valueSales = parseFloat(valueSalesField.value) || totalDM;
         const salesTax = (valueSales * rate) / 100;
         salesTaxField.value = salesTax.toFixed(2);
         if (rate > 0 && valueSales > 0) {
@@ -1190,10 +1188,24 @@ if (isModal) {
             salesTaxField.title = 'Enter rate and value sales to calculate';
         }
         
-        // Further Tax for unregistered buyers
+        // Further Tax for unregistered buyers (4% under Section 3(1A))
+        let furtherTax = 0;
         if ($('#buyerRegistrationType').val() === 'Unregistered') {
-            valueFurtherField.value = (totalDM * 4 / 100).toFixed(2);
+            if (e.target.id === 'modalFurtherTax') {
+                furtherTax = parseFloat(valueFurtherField ? valueFurtherField.value : 0) || 0;
+            } else {
+                furtherTax = (totalDM * 4 / 100);
+                if (valueFurtherField) {
+                    valueFurtherField.value = furtherTax.toFixed(2);
+                }
+            }
+        } else if (valueFurtherField) {
+            furtherTax = parseFloat(valueFurtherField.value) || 0;
         }
+
+        // Total Values = Value Sales Excl ST + Sales Tax + Further Tax (reconciles with FBR schema)
+        const total = totalDM + salesTax + furtherTax;
+        $('#modalTotalValues').val(total.toFixed(2));
     }
 }
 
@@ -2784,11 +2796,20 @@ const result = JSON.parse(cleanText);
             }
  const salesfur = (valueSales * 4) / 100;
  const taxTyper=$('#buyerRegistrationType').val();
+              let ft = 0;
               if (taxTyper === 'Unregistered') {
-                  valueFurtherField.value=salesfur;
+                  ft = salesfur;
+                  if (valueFurtherField) valueFurtherField.value = salesfur.toFixed(2);
+              } else if (valueFurtherField) {
+                  ft = parseFloat(valueFurtherField.value) || 0;
               }
             // Update the sales tax field
             salesTaxField.value = salesTax.toFixed(2);
+
+            if (isModal && !isThirdParty) {
+                const total = valueSales + salesTax + ft;
+                $('#modalTotalValues').val(total.toFixed(2));
+            }
 
             // Visual feedback
             if (rate > 0 && baseForTax > 0) {

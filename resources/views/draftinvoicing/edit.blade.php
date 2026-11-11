@@ -2254,14 +2254,11 @@ const result = JSON.parse(cleanText);
                 }
             } else {
                 const rater = parseFloat(rateValuesInput ? rateValuesInput.value : 0) || 0;
-                const totalTaxvalue = (rater * rate) / 100;
-                const total = (rater + totalTaxvalue) * qty;
                 const totalDM = rater * qty;
 
-                if (totalValuesField) totalValuesField.value = total.toFixed(2);
                 if (valueSalesField) valueSalesField.value = totalDM.toFixed(2);
 
-                const valueSales = parseFloat(valueSalesField ? valueSalesField.value : 0) || 0;
+                const valueSales = parseFloat(valueSalesField ? valueSalesField.value : 0) || totalDM;
                 const salesTax = (valueSales * rate) / 100;
                 salesTaxField.value = salesTax.toFixed(2);
 
@@ -2275,14 +2272,21 @@ const result = JSON.parse(cleanText);
                     salesTaxField.title = 'Enter rate and value sales to calculate';
                 }
 
+                let furtherTax = 0;
                 if ($('#buyerRegistrationType').val() === 'Unregistered' && valueFurtherField) {
-                    valueFurtherField.value = (totalDM * 4 / 100).toFixed(2);
+                    furtherTax = (totalDM * 4 / 100);
+                    valueFurtherField.value = furtherTax.toFixed(2);
+                } else if (valueFurtherField) {
+                    furtherTax = parseFloat(valueFurtherField.value) || 0;
                 }
+
+                const total = totalDM + salesTax + furtherTax;
+                if (totalValuesField) totalValuesField.value = total.toFixed(2);
             }
         }
 
         // Add input/change event listener for all calculation-related fields in modal
-        $(document).on('input change', 'input[name*="[rateValues]"], input[name*="[quantity]"], #modalRateValues, #modalQuantity, #modalFixedNotifiedValueOrRetailPrice, #modalDiscount, #modalDiscountPercent, #modalGhPercent, #modalValueSalesExcludingST, #modalTotalValues', function(e) {
+        $(document).on('input change', 'input[name*="[rateValues]"], input[name*="[quantity]"], #modalRateValues, #modalQuantity, #modalFixedNotifiedValueOrRetailPrice, #modalDiscount, #modalDiscountPercent, #modalGhPercent, #modalValueSalesExcludingST, #modalTotalValues, #modalFurtherTax', function(e) {
             calculateModalSalesTax();
         });
 
