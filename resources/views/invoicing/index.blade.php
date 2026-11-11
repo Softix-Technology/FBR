@@ -2205,6 +2205,7 @@ const result = JSON.parse(cleanText);
 
             // Sale type now contains only the transaction type ID
             const transTypeId = saleType;
+            const numericTransTypeId = parseInt(transTypeId) || 0;
 
             // Buyer province now contains the province code directly
             const provinceCode = buyerProvince;
@@ -2270,7 +2271,7 @@ console.log('RAW RATE RESPONSE:', text);
                     };
                 }
 
-                if (result.success && result.data && result.data.length > 0) {
+                if (result && result.success && result.data && result.data.length > 0) {
                     // Destroy existing Select2 before modifying options
                     if ($(rateSelect).data('select2')) {
                         $(rateSelect).select2('destroy');
@@ -2394,10 +2395,11 @@ console.log('RAW RATE RESPONSE:', text);
                     rateSelect.classList.add('bg-red-50');
                     rateSelect.title = 'Error loading rates — ' + error.message;
 
-                showMessage('Failed to load rates from FBR server. Please check your internet/FBR access token and try again.', 'error');
+                    showMessage('Failed to load rates from FBR server. Please check your internet/FBR access token and try again.', 'error');
 
-                // Trigger sales tax calculation when error occurs
-                calculateSalesTaxForItem(rateSelect);
+                    // Trigger sales tax calculation when error occurs
+                    calculateSalesTaxForItem(rateSelect);
+                }
             } finally {
                 // Hide loading state
                 if (loader) {
@@ -2575,13 +2577,17 @@ const result = JSON.parse(cleanText);
         const text = await response.text();
         console.log('RAW RESPONSE:', text);
 
-        const cleanText = text.trim().startsWith('{')
-            ? text
-            : text.substring(text.indexOf('{'));
+        let result = null;
+        try {
+            const cleanText = text.trim().startsWith('{')
+                ? text
+                : text.substring(text.indexOf('{'));
+            result = JSON.parse(cleanText);
+        } catch (parseError) {
+            console.warn('Could not parse document types response:', parseError);
+        }
 
-        const result = JSON.parse(cleanText);
-
-        if (result.success && result.data) {
+        if (result && result.success && result.data) {
             documentTypes = result.data;
             populateDocumentTypeSelects();
 
@@ -2592,9 +2598,10 @@ const result = JSON.parse(cleanText);
             });
 
         } else {
-            console.error('Failed to load Document Types:', result.message);
+            const errMsg = (result && result.message) ? result.message : 'Unknown error';
+            console.error('Failed to load Document Types:', errMsg);
             showMessage(
-                'Failed to load Invoice Types: ' + (result.message || 'Unknown error'),
+                'Failed to load Invoice Types: ' + errMsg,
                 'warning'
             );
             loadDefaultDocumentTypes();
@@ -2713,15 +2720,17 @@ const result = JSON.parse(cleanText);
                 });
 
                 const text = await response.text();
-console.log('RAW RATE RESPONSE:', text);
+                let result = null;
+                try {
+                    const cleanText = text.trim().startsWith('{')
+                        ? text
+                        : text.substring(text.indexOf('{'));
+                    result = JSON.parse(cleanText);
+                } catch (parseError) {
+                    console.warn('Could not parse transaction types response:', parseError);
+                }
 
-const cleanText = text.trim().startsWith('{')
-    ? text
-    : text.substring(text.indexOf('{'));
-
-const result = JSON.parse(cleanText);
-
-                                if (result.success && result.data) {
+                if (result && result.success && result.data) {
                     transactionTypes = result.data;
                     populateTransactionTypeSelects();
 
@@ -2734,8 +2743,9 @@ const result = JSON.parse(cleanText);
                     });
 
                 } else {
-                    console.error('Failed to load transaction types:', result.message);
-                    showMessage('Failed to load transaction types: ' + (result.message || 'Unknown error'), 'warning');
+                    const errMsg = (result && result.message) ? result.message : 'Unknown error';
+                    console.error('Failed to load transaction types:', errMsg);
+                    showMessage('Failed to load transaction types: ' + errMsg, 'warning');
                 }
             } catch (error) {
                 console.error('Error loading transaction types:', error);
@@ -2958,7 +2968,7 @@ const cleanText = text.trim().startsWith('{')
 
 const result = JSON.parse(cleanText);
 
-                if (result.success && result.data && result.data.length > 0) {
+                if (result && result.success && result.data && result.data.length > 0) {
                     // Cache the result
                     uomCache.set(hsCode, {
                         data: result.data,
@@ -3099,7 +3109,7 @@ const cleanText = text.trim().startsWith('{')
 
 const result = JSON.parse(cleanText);
 
-                if (result.success && result.data && result.data.length > 0) {
+                if (result && result.success && result.data && result.data.length > 0) {
                     // Display SRO information
                     displaySroInformation(result.data, itemContainer);
                   
@@ -3239,7 +3249,7 @@ const cleanText = text.trim().startsWith('{')
 
 const result = JSON.parse(cleanText);
 
-                if (result.success && result.data && result.data.length > 0) {
+                if (result && result.success && result.data && result.data.length > 0) {
                     // Populate SRO Items dropdown
                     populateSroItems(result.data, itemContainer);
                    
