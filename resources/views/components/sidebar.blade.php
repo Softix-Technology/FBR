@@ -110,6 +110,15 @@
                     </a>
                 </li>
 
+                @if ($user?->company?->can_change_password)
+                    <li class="side-nav-item">
+                        <a href="{{ route('password.change.edit') }}" class="side-nav-link">
+                            <i class="uil-lock-alt"></i>
+                            <span>Change Password</span>
+                        </a>
+                    </li>
+                @endif
+
         
 
 
@@ -132,6 +141,13 @@
                             </li>
                         </ul>
                     </div>
+                </li>
+
+                <li class="side-nav-item">
+                    <a href="{{ route('advance_features.index') }}" class="side-nav-link">
+                        <i class="uil-sliders-v-alt"></i>
+                        <span>Advance Feature</span>
+                    </a>
                 </li>
 
             @endif

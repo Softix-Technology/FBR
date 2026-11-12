@@ -10,5 +10,9 @@ class Company extends Model
 
     public $timestamps = true;     // disable if you don't use created_at / updated_at
 
-    protected $fillable = ['cid', 'cname', 'logo'];
+    protected $fillable = ['cid', 'cname', 'logo', 'can_change_password'];
+
+    protected $casts = [
+        'can_change_password' => 'boolean',
+    ];
 }

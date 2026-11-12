@@ -16,6 +16,8 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\LedgerDetailController;
 use App\Http\Controllers\UserManagement;
 use App\Http\Controllers\CompanyLogoController;
+use App\Http\Controllers\AdvanceFeatureController;
+use App\Http\Controllers\PasswordChangeController;
 use App\Http\Controllers\PayableController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\EmployeeController;
@@ -269,6 +271,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/premiertax/company-logo', [CompanyLogoController::class, 'update'])->name('company.logo.update');
     Route::delete('/premiertax/company-logo', [CompanyLogoController::class, 'destroy'])->name('company.logo.destroy');
     Route::get('/premiertax/company-logo/file/{filename}', [CompanyLogoController::class, 'file'])->name('company.logo.file');
+
+    Route::get('/premiertax/advance-features', [AdvanceFeatureController::class, 'index'])->name('advance_features.index');
+    Route::post('/premiertax/advance-features', [AdvanceFeatureController::class, 'update'])->name('advance_features.update');
+
+    Route::get('/premiertax/change-password', [PasswordChangeController::class, 'edit'])->name('password.change.edit');
+    Route::post('/premiertax/change-password', [PasswordChangeController::class, 'update'])->name('password.change.update');
     
     
     Route::resource('/premiertax/Customers', CustomerController::class)->names('custommer');
