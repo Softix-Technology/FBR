@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Commercial Invoice - {{ $invoice->seller_business_name ?? '' }}</title>
+<title>Commercial Invoice - {{ (($invoice->cid ?? null) == 12 || optional($invoice->user)->c_id == 12) ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? '') }}</title>
 <style>
   * { box-sizing: border-box; }
   body {
-    font-family: Georgia, 'Times New Roman', serif;
+    font-family: 'Times New Roman', Times, serif;
+    font-variant-numeric: lining-nums tabular-nums;
     background: #e9e9e9;
     margin: 0;
     padding: 30px 0;
@@ -149,16 +150,21 @@
   <button class="print-btn" onclick="window.print()">Print Invoice</button>
 
   <div class="page">
+    @php
+      $isJinnah = (($invoice->cid ?? null) == 12 || optional($invoice->user)->c_id == 12);
+      $displaySellerName = $isJinnah ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? '');
+      $displaySellerNtn = $isJinnah ? ($invoice->user->cinc_ntn ?? '8167774') : ($invoice->seller_ntn_cnic ?? '');
+    @endphp
 
-    <p class="company-name">{{ $invoice->seller_business_name ?? '' }}</p>
+    <p class="company-name">{{ $displaySellerName }}</p>
     <p class="company-address">
       {{ $invoice->seller_address ?? '' }}<br>
       {{ $invoice->seller_province ?? '' }}
     </p>
 
     <div class="stn-ntn-row">
-      <div><b>STN :</b> {{ $invoice->user->strn ?? $invoice->seller_ntn_cnic ?? '' }}</div>
-      <div><b>NTN :</b> {{ $invoice->seller_ntn_cnic ?? '' }}</div>
+      <div><b>{{ $isJinnah ? 'STRN' : 'STN' }} :</b> {{ $invoice->user->strn ?? $displaySellerNtn }}</div>
+      <div><b>NTN :</b> {{ $displaySellerNtn }}</div>
     </div>
 
     <div class="logo-qr-row">

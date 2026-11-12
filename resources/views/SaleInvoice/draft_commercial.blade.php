@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Commercial Draft - {{ $invoice->seller_business_name ?? '' }}</title>
+<title>Commercial Draft - {{ (($invoice->cid ?? null) == 12 || optional($invoice->user)->c_id == 12) ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? '') }}</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: Georgia, 'Times New Roman', serif; background: #e9e9e9; margin: 0; padding: 30px 0; }
+  body { font-family: 'Times New Roman', Times, serif; font-variant-numeric: lining-nums tabular-nums; background: #e9e9e9; margin: 0; padding: 30px 0; }
   .page { width: 850px; max-width: 100%; margin: 0 auto; background: #fff; padding: 40px 50px; box-shadow: 0 0 8px rgba(0,0,0,0.2); }
   .company-name { text-align: center; font-size: 28px; font-weight: bold; margin: 0 0 6px 0; }
   .company-address { text-align: center; font-size: 14px; margin: 0; line-height: 1.4; }
@@ -71,19 +71,28 @@
   </button>
   <button class="print-btn" onclick="window.print()">Print Invoice</button>
   <div class="page">
-    <p class="company-name">{{ $invoice->seller_business_name ?? '' }}</p>
+    @php
+      $isJinnah = (($invoice->cid ?? null) == 12 || optional($invoice->user)->c_id == 12);
+      $displaySellerName = $isJinnah ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? '');
+      $displaySellerNtn = $isJinnah ? ($invoice->user->cinc_ntn ?? '8167774') : ($invoice->seller_ntn_cnic ?? '');
+    @endphp
+    <p class="company-name">{{ $displaySellerName }}</p>
     <p class="company-address">{{ $invoice->seller_address ?? '' }}<br>{{ $invoice->seller_province ?? '' }}</p>
     <div class="stn-ntn-row">
-      <div><b>STN :</b> {{ $invoice->user->strn ?? $invoice->seller_ntn_cnic ?? '' }}</div>
-      <div><b>NTN :</b> {{ $invoice->seller_ntn_cnic ?? '' }}</div>
+      <div><b>{{ $isJinnah ? 'STRN' : 'STN' }} :</b> {{ $invoice->user->strn ?? $displaySellerNtn }}</div>
+      <div><b>NTN :</b> {{ $displaySellerNtn }}</div>
     </div>
     <div class="logo-qr-row">
       @if(file_exists(public_path('fbr.jpg')))
         <img src="{{ asset('fbr.jpg') }}" alt="FBR Logo" class="fbr-img">
       @endif
-      <div style="width:70px;height:70px;border:1px solid #999;display:flex;align-items:center;justify-content:center;font-size:10px;color:#888;">DRAFT</div>
+      @if(!$isJinnah)
+        <div style="width:70px;height:70px;border:1px solid #999;display:flex;align-items:center;justify-content:center;font-size:10px;color:#888;">DRAFT</div>
+      @endif
     </div>
-    <p class="digital-invoice-line">DRAFT INVOICE</p>
+    @if(!$isJinnah)
+      <p class="digital-invoice-line">DRAFT INVOICE</p>
+    @endif
     <p class="invoice-title">Commercial Invoice</p>
     @php
       $items = is_string($invoice->items) ? json_decode($invoice->items, true) : ($invoice->items ?? []);
@@ -104,7 +113,7 @@
         <div><b>NTN</b> {{ $invoice->buyer_ntn_cnic ?? '' }}</div>
       </div>
       <div class="invoice-meta">
-        <div><b>Draft No.</b> #{{ $invoice->invoice_ref_no ?? $invoice->id }}</div>
+        <div><b>{{ $isJinnah ? 'No.' : 'Draft No.' }}</b> #{{ $invoice->invoice_ref_no ?? $invoice->id }}</div>
         <div><b>Date</b> {{ \Carbon\Carbon::parse($invoice->invoice_date ?? now())->format('d/m/Y') }}</div>
         <div><b>HS Code</b> {{ $hsCode ?: '-' }}</div>
       </div>
@@ -139,7 +148,7 @@
           <tr>
             <td class="left">{{ $itemArray['productDescription'] ?? '-' }}</td>
             <td>{{ number_format($qty, 0) }}</td>
-            <td>{{ number_format($unitPrice, 3) }}</td>
+            <td>{{ number_format($unitPrice, $isJinnah ? 2 : 3) }}</td>
             <td>{{ number_format($valueExcl, 2) }}</td>
             <td>{{ number_format($salesTax, 2) }}</td>
             <td>{{ number_format($furtherTax, 2) }}</td>
@@ -165,7 +174,7 @@
     <div class="declaration">
       WE HEREBY CONFIRM THAT THE PRODUCTS SUPPLIED HAVE BEEN IMPORTED BY US AND INCOME TAX UNDER SECTION 148 HAS BEEN PAID AT IMPORT STAGE ON IMPORT OF ABOVE PRODUCTS. THEREFORE, NO WITHHOLDING TAX TO BE DEDUCTED UNDER SECTION 153 (1)(a).
     </div>
-    <p class="footer-note">This is a draft invoice — not yet submitted to FBR.</p>
+    <p class="footer-note" @if($isJinnah) style="font-size: 10px;" @endif>This is a draft invoice — not yet submitted to FBR.</p>
     <p class="page-number">Page 1</p>
   </div>
 

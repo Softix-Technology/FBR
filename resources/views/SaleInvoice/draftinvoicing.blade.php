@@ -278,10 +278,15 @@
     <button class="print-button no-print" onclick="window.print()">Print Invoice</button>
 
     <div class="invoice-container">
+        @php
+            $isJinnah = (($invoice->cid ?? null) == 12 || optional($invoice->user)->c_id == 12);
+            $displaySellerName = $isJinnah ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? null);
+            $displaySellerNtn = $isJinnah ? ($invoice->user->cinc_ntn ?? '8167774') : ($invoice->seller_ntn_cnic ?? null);
+        @endphp
         <!-- Invoice Header -->
         <div class="invoice-header">
             <div>
-                <h1>{{ $invoice->seller_business_name ?? 'N/A' }}</h1>
+                <h1>{{ $displaySellerName ?? 'N/A' }}</h1>
                 <p>Sales Tax Invoice</p>
             </div>
 
@@ -293,10 +298,10 @@
             <!-- Seller Information -->
             <div class="section">
                 <h2>Seller Information</h2>
-                @if(isset($invoice->seller_business_name) && $invoice->seller_business_name)
+                @if($displaySellerName)
                 <div class="info-row">
                     <div class="info-label">Business Name:</div>
-                    <div class="info-value">{{ $invoice->seller_business_name }}</div>
+                    <div class="info-value">{{ $displaySellerName }}</div>
                 </div>
                 @endif
                 @if(isset($invoice->user->strn) && $invoice->user->strn)
@@ -305,10 +310,10 @@
                     <div class="info-value">{{ $invoice->user->strn }}</div>
                 </div>
                 @endif
-                @if(isset($invoice->seller_ntn_cnic) && $invoice->seller_ntn_cnic)
+                @if($displaySellerNtn)
                 <div class="info-row">
                     <div class="info-label">NTN/CNIC No.:</div>
-                    <div class="info-value">{{ $invoice->seller_ntn_cnic }}</div>
+                    <div class="info-value">{{ $displaySellerNtn }}</div>
                 </div>
                 @endif
                 @if(isset($invoice->seller_province) && $invoice->seller_province)

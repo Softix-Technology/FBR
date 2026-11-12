@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Sales Tax Invoice -  {{ $invoice->seller_business_name ?? '' }}</title>
+<title>Sales Tax Invoice -  {{ (($invoice->cid ?? null) == 12 || optional($invoice->user)->c_id == 12) ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? '') }}</title>
 <style>
   @page { size: A4; margin: 10mm 8mm; }
   * { box-sizing: border-box; }
@@ -170,6 +170,11 @@
     <button class="print-btn" onclick="window.print()">Print Invoice</button>
 
 <div class="sheet">
+  @php
+    $isJinnah = (($invoice->cid ?? null) == 12 || optional($invoice->user)->c_id == 12);
+    $displaySellerName = $isJinnah ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? '');
+    $displaySellerNtn = $isJinnah ? ($invoice->user->cinc_ntn ?? '8167774') : ($invoice->seller_ntn_cnic ?? '');
+  @endphp
 
   <!-- HEADER -->
   <div class="logos-container">
@@ -184,7 +189,7 @@
   </div>
   
   <div class="company-header">
-    <p class="company-name"> {{ $invoice->seller_business_name ?? '' }}</p>
+    <p class="company-name"> {{ $displaySellerName }}</p>
     <p class="company-address">{{ $invoice->seller_address ?? '' }}</p>
     <p class="digital-invoice-num">Digital Invoice Nmbr: {{ $invoice->fbr_invoice_no ?? 'N/A' }}</p>
   </div>
@@ -202,8 +207,8 @@
       <table>
         <tr><td class="label">Invoice No.</td><td id="invNo">{{ $invoice->fbr_invoice_no ?? 'N/A' }}</td></tr>
         <tr><td class="label">Invoice Date</td><td id="invDate">{{ \Carbon\Carbon::parse($invoice->invoice_date ?? now())->format('d-M-y') }}</td></tr>
-        <tr><td class="label">Sales Tax Reg No.</td><td id="sellerSTRN">{{ $invoice->user->strn ?? $invoice->seller_ntn_cnic ?? '' }}</td></tr>
-        <tr><td class="label">NTN No.</td><td id="sellerNTN">{{ $invoice->seller_ntn_cnic ?? '' }}</td></tr>
+        <tr><td class="label">Sales Tax Reg No.</td><td id="sellerSTRN">{{ $invoice->user->strn ?? $displaySellerNtn }}</td></tr>
+        <tr><td class="label">NTN No.</td><td id="sellerNTN">{{ $displaySellerNtn }}</td></tr>
         <tr><td class="label">Serial No.</td><td id="poNo">{{ $invoice->invoice_ref_no ?? '-' }}</td></tr>
       </table>
     </div>
@@ -393,7 +398,7 @@
   </table>
 
   <div class="sign-block">
-    <div class="box">For  {{ $invoice->seller_business_name ?? 'CASIO NON STICK COATINGS' }}</div>
+    <div class="box">For  {{ $isJinnah ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? 'CASIO NON STICK COATINGS') }}</div>
   </div>
 
   <div class="note">

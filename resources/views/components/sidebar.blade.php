@@ -1,5 +1,9 @@
 @php
     $user = auth()->user();
+    $companyLogo = optional($user?->company)->logo;
+    $companyLogoUrl = $companyLogo
+        ? route('company.logo.file', ['filename' => $companyLogo])
+        : asset('assets/images/users/avatar-1.jpg');
 @endphp
 
 <div class="leftside-menu">
@@ -28,9 +32,11 @@
 
         <!-- User -->
         <div class="leftbar-user flex flex-col items-center justify-center py-4">
-            <a href="#" class="flex flex-col items-center">
-                <img src="{{ asset('assets/images/users/avatar-1.jpg') }}"
+            <a href="{{ route('company.logo.edit') }}" class="flex flex-col items-center" title="Change Company Logo">
+                <img src="{{ $companyLogoUrl }}"
+                     alt="{{ $user->name ?? 'Company Logo' }}"
                      class="rounded-full shadow-sm border-2 border-gray-200 mb-2 mx-auto"
+                     style="width:52px;height:52px;object-fit:cover;"
                      height="52" width="52">
                 <span class="text-xs font-semibold">
                     {{ $user->name ?? 'Guest' }}
@@ -95,6 +101,13 @@
                             </li>
                         </ul>
                     </div>
+                </li>
+
+                <li class="side-nav-item">
+                    <a href="{{ route('company.logo.edit') }}" class="side-nav-link">
+                        <i class="uil-image-upload"></i>
+                        <span>Company Logo</span>
+                    </a>
                 </li>
 
         

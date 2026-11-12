@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>3rd Schedule Draft - {{ $invoice->seller_business_name ?? '' }}</title>
+<title>3rd Schedule Draft - {{ (($invoice->cid ?? null) == 12 || optional($invoice->user)->c_id == 12) ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? '') }}</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   * { box-sizing: border-box; }
@@ -71,11 +71,16 @@
   </button>
   <button class="print-btn" onclick="window.print()">Print Invoice</button>
   <div class="page">
-    <p class="company-name">{{ $invoice->seller_business_name ?? '' }}</p>
+    @php
+      $isJinnah = (($invoice->cid ?? null) == 12 || optional($invoice->user)->c_id == 12);
+      $displaySellerName = $isJinnah ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? '');
+      $displaySellerNtn = $isJinnah ? ($invoice->user->cinc_ntn ?? '8167774') : ($invoice->seller_ntn_cnic ?? '');
+    @endphp
+    <p class="company-name">{{ $displaySellerName }}</p>
     <p class="company-address">{{ $invoice->seller_address ?? '' }}<br>{{ $invoice->seller_province ?? '' }}</p>
     <div class="stn-ntn-row">
-      <div><b>STN :</b> {{ $invoice->user->strn ?? $invoice->seller_ntn_cnic ?? '' }}</div>
-      <div><b>NTN :</b> {{ $invoice->seller_ntn_cnic ?? '' }}</div>
+      <div><b>{{ $isJinnah ? 'STRN' : 'STN' }} :</b> {{ $invoice->user->strn ?? $displaySellerNtn }}</div>
+      <div><b>NTN :</b> {{ $displaySellerNtn }}</div>
     </div>
     <div class="title-bar">3rd Schedule Draft — {{ $invoice->buyer_business_name ?? '' }}</div>
     <div class="buyer-meta-row">
@@ -86,7 +91,7 @@
         <div><b>NTN</b> {{ $invoice->buyer_ntn_cnic ?? '' }}</div>
       </div>
       <div class="invoice-meta">
-        <div><b>Draft No.</b> #{{ $invoice->invoice_ref_no ?? $invoice->id }}</div>
+        <div><b>{{ $isJinnah ? 'No.' : 'Draft No.' }}</b> #{{ $invoice->invoice_ref_no ?? $invoice->id }}</div>
         <div><b>Date</b> {{ \Carbon\Carbon::parse($invoice->invoice_date ?? now())->format('d/m/Y') }}</div>
       </div>
     </div>
@@ -162,7 +167,7 @@
         <tr>
           <td>{{ $index + 1 }}</td>
           <td class="desc">{{ $itemArray['productDescription'] ?? '-' }}</td>
-          <td>{{ number_format($qty, 3) }}</td>
+          <td>{{ number_format($qty, $isJinnah ? 2 : 3) }}</td>
           <td class="num">{{ number_format($retailExcl, 0) }}</td>
           <td class="num">{{ number_format($retailTax, 0) }}</td>
           <td class="num">{{ number_format($retailIncl, 0) }}</td>
@@ -191,7 +196,7 @@
       <tfoot>
         <tr>
           <td colspan="2">Total Value Exclusive of Sales Tax</td>
-          <td class="num">{{ number_format($grandQty, 3) }}</td>
+          <td class="num">{{ number_format($grandQty, $isJinnah ? 2 : 3) }}</td>
           <td class="num">{{ number_format($grandRetailExcl, 0) }}</td>
           <td class="num">{{ number_format($grandRetailTax, 0) }}</td>
           <td class="num">{{ number_format($grandRetailIncl, 0) }}</td>
@@ -215,9 +220,9 @@
       </tr>
     </table>
     <div class="sign-block">
-      <div class="box">For M/S {{ $invoice->seller_business_name ?? 'CASIO NON STICK COATINGS' }}</div>
+      <div class="box">For M/S {{ $isJinnah ? ($invoice->user->business_name ?? 'JINNAH INDUSTRY') : ($invoice->seller_business_name ?? 'CASIO NON STICK COATINGS') }}</div>
     </div>
-    <div class="note">Draft Invoice — Not yet submitted to FBR</div>
+    <div class="note" @if($isJinnah) style="font-size: 9px;" @endif>Draft Invoice — Not yet submitted to FBR</div>
   </div>
 
   <script>

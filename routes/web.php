@@ -15,6 +15,7 @@ use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\LedgerDetailController;
 use App\Http\Controllers\UserManagement;
+use App\Http\Controllers\CompanyLogoController;
 use App\Http\Controllers\PayableController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\EmployeeController;
@@ -264,6 +265,10 @@ Route::resource('/premiertax/Customers', CustomerController::class)->names('cust
 Route::middleware('auth')->group(function () {
     Route::resource('/premiertax/users',UserManagement::class)->names('users');
     Route::resource('/premiertax/companies', CompaniesController::class)->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])->names('premiertax.companies');
+    Route::get('/premiertax/company-logo', [CompanyLogoController::class, 'edit'])->name('company.logo.edit');
+    Route::post('/premiertax/company-logo', [CompanyLogoController::class, 'update'])->name('company.logo.update');
+    Route::delete('/premiertax/company-logo', [CompanyLogoController::class, 'destroy'])->name('company.logo.destroy');
+    Route::get('/premiertax/company-logo/file/{filename}', [CompanyLogoController::class, 'file'])->name('company.logo.file');
     
     
     Route::resource('/premiertax/Customers', CustomerController::class)->names('custommer');

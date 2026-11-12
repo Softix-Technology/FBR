@@ -10,5 +10,5 @@ class Company extends Model
 
     public $timestamps = true;     // disable if you don't use created_at / updated_at
 
-    protected $fillable = ['cid', 'cname'];
+    protected $fillable = ['cid', 'cname', 'logo'];
 }
