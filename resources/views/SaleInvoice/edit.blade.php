@@ -443,6 +443,7 @@
     <script>
         // Pass data from backend to JavaScript
         window.appData = {
+            isTargetCompany: @json($isTargetCompany ?? false),
             provinces: @json($provinces ?? []),
             hsCodes: @json($hsCodes ?? []),
             uoMs: @json($uoMs ?? []),
@@ -2228,7 +2229,9 @@ const result = JSON.parse(cleanText);
                 const totalVal = parseFloat(totalValuesField ? totalValuesField.value : 0) || 0;
 
                 // 3rd Schedule: When Quantity or Total Values is entered, calculate Fixed Notified Value/Retail Price = Quantity * Total Values
-                if (e && e.target && (e.target.id === 'modalTotalValues' || e.target.id === 'modalQuantity')) {
+                // ONLY for target company (mna03226644400@gmail.com / JINNAH INDUSTRY)
+                const isTargetCo = window.appData && window.appData.isTargetCompany;
+                if (isTargetCo && e && e.target && (e.target.id === 'modalTotalValues' || e.target.id === 'modalQuantity')) {
                     if (fnField) {
                         fnField.value = (qty > 0 && totalVal > 0) ? (qty * totalVal).toFixed(2) : (totalVal > 0 ? totalVal.toFixed(2) : '');
                     }
