@@ -947,7 +947,19 @@ const data = JSON.parse(cleanText);
                     businessNameField.value = '';
                 }
 
-               
+                // Reset Further Tax for registered buyer
+                if (typeof itemsData !== 'undefined' && Array.isArray(itemsData)) {
+                    itemsData.forEach(item => {
+                        item.furtherTax = 0;
+                    });
+                    if (typeof updateItemsTable === 'function') updateItemsTable();
+                    if (typeof updateTotals === 'function') updateTotals();
+                }
+                const modalFt = document.getElementById('modalFurtherTax');
+                if (modalFt) {
+                    modalFt.value = '0';
+                    modalFt.readOnly = true;
+                }
             } else {
                 // Default state - enable all fields
                 ntnCnicField.readOnly = false;
@@ -1074,12 +1086,14 @@ const data = JSON.parse(cleanText);
 
             // Add event listener for rate*quantity and fixedNotifiedValueOrRetailPrice
             let _updatingFixedNotified = false;
-            $(document).on('input', 'input[name*="[rateValues]"],input[name*="[quantity]"], #modalRateValues,#modalQuantity,#modalFixedNotifiedValueOrRetailPrice,#modalDiscount,#modalValueSalesExcludingST,#modalFurtherTax', function(e) {
+            $(document).on('input', 'input[name*="[rateValues]"],input[name*="[quantity]"], #modalRateValues,#modalQuantity,#modalTotalValues,#modalFixedNotifiedValueOrRetailPrice,#modalDiscount,#modalValueSalesExcludingST,#modalFurtherTax', function(e) {
 
 // Check if we're in the modal context
 const isModal =
     e.target.closest('#addItemModal') !== null ||
     e.target.id === 'modalRateValues' ||
+    e.target.id === 'modalQuantity' ||
+    e.target.id === 'modalTotalValues' ||
     e.target.id === 'modalFixedNotifiedValueOrRetailPrice' ||
     e.target.id === 'modalDiscount' ||
     e.target.id === 'modalValueSalesExcludingST' ||
@@ -1127,7 +1141,18 @@ if (isModal) {
         if (_updatingFixedNotified) return;
         _updatingFixedNotified = true;
         try {
-            const basePrice = parseFloat(document.getElementById('modalFixedNotifiedValueOrRetailPrice').value) || 0;
+            const fnField = document.getElementById('modalFixedNotifiedValueOrRetailPrice');
+            const totalValuesField = document.getElementById('modalTotalValues');
+            const totalVal = parseFloat(totalValuesField ? totalValuesField.value : 0) || 0;
+
+            // 3rd Schedule: When Quantity or Total Values is entered, calculate Fixed Notified Value/Retail Price = Quantity * Total Values
+            if (e && e.target && (e.target.id === 'modalTotalValues' || e.target.id === 'modalQuantity')) {
+                if (fnField) {
+                    fnField.value = (qty > 0 && totalVal > 0) ? (qty * totalVal).toFixed(2) : (totalVal > 0 ? totalVal.toFixed(2) : '');
+                }
+            }
+
+            const basePrice = parseFloat(fnField ? fnField.value : 0) || 0;
             
             // Get percentage values for 3rd Schedule
             const ghPercent = parseFloat(document.getElementById('modalGhPercent').value) || 0;
@@ -1151,8 +1176,10 @@ if (isModal) {
             $('#modalGhAmount').val(ghAmount.toFixed(2));
 
             if (window.appData && window.appData.isTargetCompany) {
-                const total3rd = exclVal + salesTax3rd;
-                $('#modalTotalValues').val(total3rd.toFixed(2));
+                if (!e || !e.target || (e.target.id !== 'modalTotalValues' && e.target.id !== 'modalQuantity')) {
+                    const total3rd = exclVal + salesTax3rd;
+                    $('#modalTotalValues').val(total3rd.toFixed(2));
+                }
             }
 
             if (rate > 0 && basePrice > 0) {
@@ -1161,9 +1188,10 @@ if (isModal) {
                 salesTaxField.title = `3rd Schedule Tax: ${basePrice.toFixed(2)} × ${rate}% = ${salesTax3rd.toFixed(2)}`;
             }
             
-            const furtherTaxAmt = exclVal * 4 / 100;
-            if ($('#buyerRegistrationType').val() === 'Unregistered') {
-                valueFurtherField.value = furtherTaxAmt.toFixed(2);
+            // 3rd Schedule goods do NOT incur Further Tax
+            if (valueFurtherField) {
+                valueFurtherField.value = '0';
+                valueFurtherField.readOnly = true;
             }
         } finally {
             _updatingFixedNotified = false;
@@ -1190,7 +1218,9 @@ if (isModal) {
         
         // Further Tax for unregistered buyers (4% under Section 3(1A))
         let furtherTax = 0;
-        if ($('#buyerRegistrationType').val() === 'Unregistered') {
+        const isUnregistered = ($('#buyerRegistrationType').val() || '').toLowerCase() === 'unregistered';
+        if (isUnregistered && !isThirdParty) {
+            if (valueFurtherField) valueFurtherField.readOnly = false;
             if (e.target.id === 'modalFurtherTax') {
                 furtherTax = parseFloat(valueFurtherField ? valueFurtherField.value : 0) || 0;
             } else {
@@ -1199,8 +1229,12 @@ if (isModal) {
                     valueFurtherField.value = furtherTax.toFixed(2);
                 }
             }
-        } else if (valueFurtherField) {
-            furtherTax = parseFloat(valueFurtherField.value) || 0;
+        } else {
+            furtherTax = 0;
+            if (valueFurtherField) {
+                valueFurtherField.value = '0';
+                valueFurtherField.readOnly = true;
+            }
         }
 
         // Total Values = Value Sales Excl ST + Sales Tax + Further Tax (reconciles with FBR schema)
@@ -2843,13 +2877,20 @@ const result = JSON.parse(cleanText);
                 salesTax = (valueSales * rate) / 100;
             }
  const salesfur = (valueSales * 4) / 100;
- const taxTyper=$('#buyerRegistrationType').val();
+ const taxTyper = ($('#buyerRegistrationType').val() || '').toLowerCase();
               let ft = 0;
-              if (taxTyper === 'Unregistered') {
+              if (taxTyper === 'unregistered' && !isThirdParty) {
                   ft = salesfur;
-                  if (valueFurtherField) valueFurtherField.value = salesfur.toFixed(2);
-              } else if (valueFurtherField) {
-                  ft = parseFloat(valueFurtherField.value) || 0;
+                  if (valueFurtherField) {
+                      valueFurtherField.value = salesfur.toFixed(2);
+                      valueFurtherField.readOnly = false;
+                  }
+              } else {
+                  ft = 0;
+                  if (valueFurtherField) {
+                      valueFurtherField.value = '0';
+                      valueFurtherField.readOnly = true;
+                  }
               }
             // Update the sales tax field
             salesTaxField.value = salesTax.toFixed(2);
@@ -3626,6 +3667,13 @@ const result = JSON.parse(cleanText);
                 const qtyVal = parseFloat(itemData.quantity) || 0;
                 const baseForDiscount = rateVal * qtyVal;
                 itemData.discount = (baseForDiscount * discountVal / 100).toFixed(2);
+            }
+
+            // If 3rd Schedule or Registered buyer, Further Tax is always 0
+            const isThirdModalItem = is3rdScheduleSelected();
+            const isUnregisteredBuyer = ($('#buyerRegistrationType').val() || '').toLowerCase() === 'unregistered';
+            if (isThirdModalItem || !isUnregisteredBuyer) {
+                itemData.furtherTax = '0';
             }
 
             if (editingItemIndex >= 0) {

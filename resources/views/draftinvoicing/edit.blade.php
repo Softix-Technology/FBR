@@ -2156,6 +2156,13 @@ const result = JSON.parse(cleanText);
                 itemData.rateValue = 0;
             }
 
+            // If 3rd Schedule or Registered buyer, Further Tax is always 0
+            const isThirdModalItem = is3rdScheduleSelected();
+            const isUnregisteredBuyer = ($('#buyerRegistrationType').val() || '').toLowerCase() === 'unregistered';
+            if (isThirdModalItem || !isUnregisteredBuyer) {
+                itemData.furtherTax = '0';
+            }
+
             if (editingItemIndex >= 0) {
                 // Update existing item
                 itemsData[editingItemIndex] = itemData;
@@ -2179,13 +2186,25 @@ const result = JSON.parse(cleanText);
 
         // Add event listeners
         document.getElementById('buyerProvince').addEventListener('change', validateBuyerRequirements);
-        document.getElementById('buyerRegistrationType').addEventListener('change', validateBuyerRequirements);
+        $('#buyerRegistrationType').on('change', function() {
+            const regType = ($(this).val() || '').toLowerCase();
+            if (regType === 'registered') {
+                if (typeof itemsData !== 'undefined' && Array.isArray(itemsData)) {
+                    itemsData.forEach(item => {
+                        item.furtherTax = 0;
+                    });
+                    updateItemsTable();
+                    updateTotals();
+                }
+            }
+            validateBuyerRequirements();
+        });
 
         // NOTE: Sale Type and HS Code select2:select listeners are now bound DIRECTLY on the
         // elements inside initializeModalSelect2() above. Document-level delegation does not
         // work reliably when dropdownParent is set on Select2.
         // Unified Modal Sales Tax Calculation function
-        function calculateModalSalesTax() {
+        function calculateModalSalesTax(e) {
             const isThirdParty = is3rdScheduleSelected();
 
             const rateValuesInput = document.getElementById('modalRateValues');
@@ -2216,6 +2235,15 @@ const result = JSON.parse(cleanText);
 
             if (isThirdParty) {
                 const fnField = document.getElementById('modalFixedNotifiedValueOrRetailPrice');
+                const totalVal = parseFloat(totalValuesField ? totalValuesField.value : 0) || 0;
+
+                // 3rd Schedule: When Quantity or Total Values is entered, calculate Fixed Notified Value/Retail Price = Quantity * Total Values
+                if (e && e.target && (e.target.id === 'modalTotalValues' || e.target.id === 'modalQuantity')) {
+                    if (fnField) {
+                        fnField.value = (qty > 0 && totalVal > 0) ? (qty * totalVal).toFixed(2) : (totalVal > 0 ? totalVal.toFixed(2) : '');
+                    }
+                }
+
                 const basePrice = parseFloat(fnField ? fnField.value : 0) || 0;
 
                 const ghPercentField = document.getElementById('modalGhPercent');
@@ -2248,9 +2276,10 @@ const result = JSON.parse(cleanText);
                     salesTaxField.classList.add('bg-gray-50');
                 }
 
-                const furtherTaxAmt = exclVal * 4 / 100;
-                if ($('#buyerRegistrationType').val() === 'Unregistered' && valueFurtherField) {
-                    valueFurtherField.value = furtherTaxAmt.toFixed(2);
+                // 3rd Schedule goods do NOT incur Further Tax
+                if (valueFurtherField) {
+                    valueFurtherField.value = '0';
+                    valueFurtherField.readOnly = true;
                 }
             } else {
                 const rater = parseFloat(rateValuesInput ? rateValuesInput.value : 0) || 0;
@@ -2273,11 +2302,15 @@ const result = JSON.parse(cleanText);
                 }
 
                 let furtherTax = 0;
-                if ($('#buyerRegistrationType').val() === 'Unregistered' && valueFurtherField) {
+                const isUnregistered = ($('#buyerRegistrationType').val() || '').toLowerCase() === 'unregistered';
+                if (isUnregistered && valueFurtherField) {
+                    valueFurtherField.readOnly = false;
                     furtherTax = (totalDM * 4 / 100);
                     valueFurtherField.value = furtherTax.toFixed(2);
                 } else if (valueFurtherField) {
-                    furtherTax = parseFloat(valueFurtherField.value) || 0;
+                    furtherTax = 0;
+                    valueFurtherField.value = '0';
+                    valueFurtherField.readOnly = true;
                 }
 
                 const total = totalDM + salesTax + furtherTax;
@@ -2287,7 +2320,7 @@ const result = JSON.parse(cleanText);
 
         // Add input/change event listener for all calculation-related fields in modal
         $(document).on('input change', 'input[name*="[rateValues]"], input[name*="[quantity]"], #modalRateValues, #modalQuantity, #modalFixedNotifiedValueOrRetailPrice, #modalDiscount, #modalDiscountPercent, #modalGhPercent, #modalValueSalesExcludingST, #modalTotalValues, #modalFurtherTax', function(e) {
-            calculateModalSalesTax();
+            calculateModalSalesTax(e);
         });
 
         // Modal event listeners

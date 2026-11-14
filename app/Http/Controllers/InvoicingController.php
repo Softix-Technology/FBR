@@ -175,6 +175,14 @@ foreach ($invoiceData['items'] as &$item) {
         $item['salesTaxApplicable'] = round((float) $item['salesTaxApplicable'], 2);
     }
 
+    // Ensure furtherTax is 0 for registered buyer or 3rd schedule items
+    $buyerReg = strtolower(trim($invoiceData['buyerRegistrationType'] ?? ''));
+    $saleTypeStr = strtolower(trim($item['saleType'] ?? ''));
+    $isThirdSchedule = str_contains($saleTypeStr, '3rd schedule') || str_contains($saleTypeStr, '3rd party') || $saleTypeStr === '23';
+    if ($buyerReg === 'registered' || $isThirdSchedule) {
+        $item['furtherTax'] = 0;
+    }
+
     if (isset($item['furtherTax'])) {
         $item['furtherTax'] = round((float) $item['furtherTax'], 2);
     }

@@ -127,6 +127,20 @@ public function saveDraft(Request $request)
 // }
 
 
+    // Ensure furtherTax is 0 for registered buyer or 3rd schedule items
+    $isRegisteredBuyer = strtolower(trim($validated['buyerRegistrationType'] ?? '')) === 'registered';
+    $draftItems = $validated['items'];
+    if (is_array($draftItems)) {
+        foreach ($draftItems as &$item) {
+            $saleType = strtolower(trim($item['saleType'] ?? ''));
+            $isThird = str_contains($saleType, '3rd schedule') || str_contains($saleType, '3rd party') || $saleType === '23';
+            if ($isRegisteredBuyer || $isThird) {
+                $item['furtherTax'] = 0;
+            }
+        }
+        unset($item);
+    }
+
     // Prepare draft data
     $draftData = [
         'user_id' => $user->id,
@@ -145,7 +159,7 @@ public function saveDraft(Request $request)
         'buyer_province' => $validated['buyerProvince'],
         'buyer_registration_type' => $validated['buyerRegistrationType'],
         'buyer_address' => $validated['buyerAddress'] ?? null,
-        'items' => $validated['items'], // Make sure DraftInvoice model casts 'items' as array
+        'items' => $draftItems, // Make sure DraftInvoice model casts 'items' as array
         'status' => 0, // 0 = incomplete draft
      'expense_col'=>$request->input('furtherexpense'),
     ];
@@ -238,7 +252,20 @@ public function saveDraft(Request $request)
         $draftInvoice->buyer_province = $data['buyerProvince'] ?? null;
         $draftInvoice->buyer_registration_type = $data['buyerRegistrationType'] ?? null;
         $draftInvoice->buyer_address = $data['buyerAddress'] ?? null;
-        $draftInvoice->items = $request->items;
+
+        $isRegisteredBuyer = strtolower(trim($draftInvoice->buyer_registration_type ?? '')) === 'registered';
+        $draftItems = $request->items;
+        if (is_array($draftItems)) {
+            foreach ($draftItems as &$item) {
+                $saleType = strtolower(trim($item['saleType'] ?? ''));
+                $isThird = str_contains($saleType, '3rd schedule') || str_contains($saleType, '3rd party') || $saleType === '23';
+                if ($isRegisteredBuyer || $isThird) {
+                    $item['furtherTax'] = 0;
+                }
+            }
+            unset($item);
+        }
+        $draftInvoice->items = $draftItems;
         $draftInvoice->expense_col=$request->furtherexpense;
         $draftInvoice->save();
 
@@ -278,7 +305,13 @@ public function saveDraft(Request $request)
             ];
 
             // Normalize items: ensure numeric fields are numbers, remove rateValues
+            $isRegisteredBuyer = strtolower(trim($draftInvoice->buyer_registration_type ?? '')) === 'registered';
             foreach ($invoiceData['items'] as &$item) {
+                $saleType = strtolower(trim($item['saleType'] ?? ''));
+                $isThird = str_contains($saleType, '3rd schedule') || str_contains($saleType, '3rd party') || $saleType === '23';
+                if ($isRegisteredBuyer || $isThird) {
+                    $item['furtherTax'] = 0;
+                }
                 if (isset($item['quantity'])) {
                     $item['quantity'] = round((float) $item['quantity'], 4);
                 }
@@ -437,7 +470,13 @@ public function saveDraft(Request $request)
                 ];
 
                 // Normalize items
+                $isRegisteredBuyer = strtolower(trim($draft->buyer_registration_type ?? '')) === 'registered';
                 foreach ($invoiceData['items'] as &$item) {
+                    $saleType = strtolower(trim($item['saleType'] ?? ''));
+                    $isThird = str_contains($saleType, '3rd schedule') || str_contains($saleType, '3rd party') || $saleType === '23';
+                    if ($isRegisteredBuyer || $isThird) {
+                        $item['furtherTax'] = 0;
+                    }
                     if (isset($item['quantity'])) {
                         $item['quantity'] = round((float) $item['quantity'], 4);
                     }
